@@ -1,4 +1,5 @@
-% scrabble.pl - Plantilla inicial del juego estilo Scrabble en Prolog
+% Configurar la codificación de entrada y salida como UTF-8
+:- set_prolog_flag(encoding, utf8).
 
 :- dynamic opcion/2.
 :- dynamic jugador/3.
@@ -11,6 +12,12 @@
 %% CONFIGURACIÓN
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% opcion_valida(+Opcion, -ValoresPosibles)
+opcion_valida(idioma, ['es', 'eus', 'en']).
+opcion_valida(modo_juego, ['jugadorVSjugador', 'jugadorVSmaquina']).
+opcion_valida(reparto_fichas, ['aleatorio', 'manual']).
+opcion_valida(modo_inicio, ['normal', 'alterno']).
+
 % ver_opcion(+Opcion)
 ver_opcion(O) :-
     opcion(O, V),
@@ -19,8 +26,31 @@ ver_opcion(O) :-
 % establecer_opcion(+Opcion, +Valor)
 establecer_opcion(O, V) :-
     \+ partida_activa(_),
-    (   retract(opcion(O, _)) ; true ),
-    assert(opcion(O, V)).
+    opcion_valida(O, ValoresPosibles), % Consulta los valores válidos
+    (   member(V, ValoresPosibles)    % Verifica si el valor es válido
+    ->  (retract(opcion(O, _)) ; true),
+        assert(opcion(O, V))
+    ;   format("Error: ~w no es un valor válido para la opción ~w.~n", [V, O]), fail
+    ).
+
+% configurar_opciones/0: predicado auxiliar para la configuración automática de todas las opciones por consola.
+configurar_opciones :-
+    preguntar_opcion(idioma, "Seleccione el idioma (es/eus/en): "),
+    preguntar_opcion(modo_juego, "Seleccione el modo de juego (jugadorVSjugador/jugadorVSmaquina): "),
+    preguntar_opcion(reparto_fichas, "Seleccione el reparto de fichas (aleatorio/manual): "),
+    preguntar_opcion(modo_inicio, "Seleccione el modo de inicio (normal/alterno): ").
+
+% preguntar_opcion(+Opcion, +Mensaje)
+preguntar_opcion(Opcion, Mensaje) :-
+    format(Mensaje),
+    flush_output,
+    read_line_to_string(user_input, ValorString),
+    atom_string(Valor, ValorString),
+    (   establecer_opcion(Opcion, Valor)
+    ->  true
+    ;   format("Valor no válido. Inténtelo de nuevo.~n~n"),
+        preguntar_opcion(Opcion, Mensaje)
+    ).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% INICIO Y GESTIÓN DE PARTIDAS
@@ -33,6 +63,52 @@ iniciar_partida(J1, J2) :-
     inicializar_jugadores([J1, J2]),
     inicializar_tablero,
     repartir_fichas([J1, J2]).
+
+/* %NUEVO INICIAR PARTIDA (SIN PROBAR)
+
+% filepath: c:\Users\uleon\Desktop\TRAGICERA6\PL\practicaPL\scrabble.pl
+% iniciar_partida/0: Llama automáticamente a iniciar_partida/1 o iniciar_partida/2 según el modo de juego
+iniciar_partida :-
+    opcion(modo_juego, 'jugadorVSjugador'),
+    format("Modo de juego: Jugador vs Jugador.~n"),
+    iniciar_partida(_, _). % Llama a iniciar_partida/2 para dos jugadores
+
+iniciar_partida :-
+    opcion(modo_juego, 'jugadorVSmaquina'),
+    format("Modo de juego: Jugador vs Máquina.~n"),
+    iniciar_partida(_). % Llama a iniciar_partida/1 para un jugador
+
+iniciar_partida :-
+    format("Error: No se ha configurado el modo de juego correctamente.~n"), fail.
+
+% iniciar_partida/1: Inicia una partida con un jugador contra la máquina
+iniciar_partida(Jugador) :-
+    \+ partida_activa(_),
+    format("Ingrese el nombre del jugador: "),
+    flush_output,
+    read_line_to_string(user_input, Jugador),
+    assert(partida_activa(jugadores(Jugador, maquina))),
+    inicializar_jugadores([Jugador, maquina]),
+    inicializar_tablero,
+    repartir_fichas([Jugador, maquina]),
+    format("Partida iniciada: ~w vs Máquina.~n", [Jugador]).
+
+% iniciar_partida/2: Inicia una partida con dos jugadores
+iniciar_partida(Jugador1, Jugador2) :-
+    \+ partida_activa(_),
+    format("Ingrese el nombre del jugador 1: "),
+    flush_output,
+    read_line_to_string(user_input, Jugador1),
+    format("Ingrese el nombre del jugador 2: "),
+    flush_output,
+    read_line_to_string(user_input, Jugador2),
+    assert(partida_activa(jugadores(Jugador1, Jugador2))),
+    inicializar_jugadores([Jugador1, Jugador2]),
+    inicializar_tablero,
+    repartir_fichas([Jugador1, Jugador2]),
+    format("Partida iniciada: ~w vs ~w.~n", [Jugador1, Jugador2]).
+
+*/
 
 % abandonar_partida(+Jugador)
 abandonar_partida(J) :-
