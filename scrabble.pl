@@ -1,12 +1,17 @@
 % Configurar la codificación de entrada y salida como UTF-8
 :- set_prolog_flag(encoding, utf8).
 
+test_tildes :-
+    format("Prueba de caracteres: á, é, í, ó, ú, ñ, ü.~n").
+
 :- dynamic opcion/2.
 :- dynamic jugador/3.
 :- dynamic partida_activa/1.
 :- dynamic casilla/4.
 :- dynamic ficha_disponible/2.
 :- dynamic historial/4.
+:- dynamic turno_actual/1.
+:- dynamic ultimo_iniciador/1. % Para el modo alterno
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% CONFIGURACIÓN
@@ -56,65 +61,158 @@ preguntar_opcion(Opcion, Mensaje) :-
 %% INICIO Y GESTIÓN DE PARTIDAS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% iniciar_partida(+J1, +J2)
-iniciar_partida(J1, J2) :-
-    \+ partida_activa(_),
-    assert(partida_activa(jugadores(J1, J2))),
-    inicializar_jugadores([J1, J2]),
-    inicializar_tablero,
-    repartir_fichas([J1, J2]).
-
-/* %NUEVO INICIAR PARTIDA (SIN PROBAR)
-
-% filepath: c:\Users\uleon\Desktop\TRAGICERA6\PL\practicaPL\scrabble.pl
 % iniciar_partida/0: Llama automáticamente a iniciar_partida/1 o iniciar_partida/2 según el modo de juego
 iniciar_partida :-
     opcion(modo_juego, 'jugadorVSjugador'),
+    !,
     format("Modo de juego: Jugador vs Jugador.~n"),
-    iniciar_partida(_, _). % Llama a iniciar_partida/2 para dos jugadores
+    format("Ingrese el nombre del jugador 1: "),
+    flush_output,
+    read_line_to_string(user_input, Jugador1String),
+    atom_string(Jugador1, Jugador1String), % Convertir a átomo
+    format("Ingrese el nombre del jugador 2: "),
+    flush_output,
+    read_line_to_string(user_input, Jugador2String),
+    atom_string(Jugador2, Jugador2String), % Convertir a átomo
+    (   iniciar_partida(Jugador1, Jugador2)
+    ->  true
+    ;   !, fail % Detiene el flujo si iniciar_partida/2 falla
+    ).
 
 iniciar_partida :-
     opcion(modo_juego, 'jugadorVSmaquina'),
+    !,
     format("Modo de juego: Jugador vs Máquina.~n"),
-    iniciar_partida(_). % Llama a iniciar_partida/1 para un jugador
+    format("Ingrese el nombre del jugador: "),
+    flush_output,
+    read_line_to_string(user_input, JugadorString),
+    atom_string(Jugador, JugadorString), % Convertir a átomo
+    (   iniciar_partida(Jugador)
+    ->  true
+    ;   !, fail % Detiene el flujo si iniciar_partida/1 falla
+    ).
 
 iniciar_partida :-
     format("Error: No se ha configurado el modo de juego correctamente.~n"), fail.
 
 % iniciar_partida/1: Inicia una partida con un jugador contra la máquina
 iniciar_partida(Jugador) :-
+    nonvar(Jugador),
+    opcion(modo_juego, 'jugadorVSmaquina'), % Verifica que el modo de juego sea correcto
     \+ partida_activa(_),
-    format("Ingrese el nombre del jugador: "),
-    flush_output,
-    read_line_to_string(user_input, Jugador),
     assert(partida_activa(jugadores(Jugador, maquina))),
     inicializar_jugadores([Jugador, maquina]),
     inicializar_tablero,
     repartir_fichas([Jugador, maquina]),
-    format("Partida iniciada: ~w vs Máquina.~n", [Jugador]).
+    inicializar_turno([Jugador, maquina]),
+    format("Partida iniciada: ~w vs Máquina.~n", [Jugador]), !.
+
+iniciar_partida(Jugador) :-
+    var(Jugador), % Si el parámetro no está instanciado, muestra un error
+    format("Error: El nombre del jugador debe estar instanciado.~n"), fail.
+
+iniciar_partida(_) :-
+    \+ opcion(modo_juego, 'jugadorVSmaquina'), % Falla si el modo no es correcto
+    format("Error: El modo de juego configurado no es 'jugadorVSmaquina'.~n"), fail.
 
 % iniciar_partida/2: Inicia una partida con dos jugadores
-iniciar_partida(Jugador1, Jugador2) :-
-    \+ partida_activa(_),
-    format("Ingrese el nombre del jugador 1: "),
-    flush_output,
-    read_line_to_string(user_input, Jugador1),
-    format("Ingrese el nombre del jugador 2: "),
-    flush_output,
-    read_line_to_string(user_input, Jugador2),
-    assert(partida_activa(jugadores(Jugador1, Jugador2))),
-    inicializar_jugadores([Jugador1, Jugador2]),
-    inicializar_tablero,
-    repartir_fichas([Jugador1, Jugador2]),
-    format("Partida iniciada: ~w vs ~w.~n", [Jugador1, Jugador2]).
+iniciar_partida(J1, J2) :-
+    ( var(J1); var(J2) ), !,
+    format("Error: Los nombres de los jugadores deben estar instanciados.~n"), fail.
 
-*/
+iniciar_partida(_, _) :-
+    \+ opcion(modo_juego, jugadorVSjugador), !, 
+    format("Error: El modo de juego configurado no es 'jugadorVSjugador'.~n"), fail.
+
+iniciar_partida(J1, J2) :-
+    J1 == J2, !, 
+    format("Error: Los jugadores no pueden tener el mismo nombre.~n"), fail.
+
+iniciar_partida(J1, J2) :-
+    \+ partida_activa(_),
+    assert(partida_activa(jugadores(J1, J2))),
+    inicializar_jugadores([J1, J2]),
+    inicializar_tablero,
+    repartir_fichas([J1, J2]),
+    inicializar_turno([J1, J2]),
+    format("Partida iniciada: ~w vs ~w.~n", [J1, J2]),
+    turno_actual(T),
+    format("Es el turno de ~w.~n", [T]),
+    !.
 
 % abandonar_partida(+Jugador)
+abandonar_partida(_) :-
+    \+ partida_activa(_),
+    format("Error: no hay ninguna partida activa.~n"),
+    !, fail.
+
 abandonar_partida(J) :-
-    partida_activa(jugadores(J, _)); partida_activa(jugadores(_, J)),
+    var(J),
+    format("Error: El nombre del jugador debe estar instanciado.~n"),
+    !, fail.
+
+abandonar_partida(J) :-
+    \+ jugador(J, _, _),
+    format("Error: El jugador ~w no existe.~n", [J]),
+    !, fail.
+
+abandonar_partida(J) :-
+    partida_activa(jugadores(J, Otro)),
+    format("El jugador ~w ha abandonado la partida. ~w gana automáticamente.~n", [J, Otro]),
+    reset_juego,
+    !.
+
+abandonar_partida(J) :-
+    partida_activa(jugadores(Otro, J)),
+    format("El jugador ~w ha abandonado la partida. ~w gana automáticamente.~n", [J, Otro]),
+    reset_juego,
+    !.
+
+abandonar_partida(J) :-
+    format("Error: el jugador ~w no participa en la partida actual.~n", [J]),
+    !, fail.
+
+% reset_juego/0: Limpia el estado del juego, pero mantiene las opciones de configuración
+reset_juego :-
     retractall(partida_activa(_)),
-    format("El jugador ~w ha abandonado la partida.~n", [J]).
+    retractall(jugador(_, _, _)),
+    retractall(casilla(_, _, _, _)),
+    retractall(ficha_disponible(_, _)),
+    retractall(historial(_, _, _, _)),
+    retractall(turno_actual(_)),
+    format("El juego ha sido reiniciado. Puede configurar una nueva partida.~n").
+
+% inicializar_turno(+Jugadores)
+inicializar_turno([J1, _]) :-
+    opcion(modo_inicio, 'normal'), % Modo normal: siempre comienza el jugador 1
+    retractall(turno_actual(_)),
+    assert(turno_actual(J1)),
+    format("Es el turno de ~w.~n", [J1]).
+
+inicializar_turno([J1, J2]) :-
+    opcion(modo_inicio, 'alterno'), % Modo alterno: alterna el jugador inicial
+    (   retract(ultimo_iniciador(J1)) % Si el último iniciador fue J1, ahora comienza J2
+    ->  assert(turno_actual(J2)),
+        assert(ultimo_iniciador(J2))
+    ;   retract(ultimo_iniciador(J2)) % Si el último iniciador fue J2, ahora comienza J1
+    ->  assert(turno_actual(J1)),
+        assert(ultimo_iniciador(J1))
+    ;   % Primera partida: comienza el jugador 1
+        assert(turno_actual(J1)),
+        assert(ultimo_iniciador(J1))
+    ).
+
+% cambiar_turno/0: Alterna el turno entre los jugadores
+cambiar_turno :-
+    turno_actual(JugadorActual),
+    partida_activa(jugadores(Jugador1, Jugador2)),
+    (   JugadorActual == Jugador1
+    ->  NuevoTurno = Jugador2
+    ;   NuevoTurno = Jugador1
+    ),
+    retract(turno_actual(_)),
+    assert(turno_actual(NuevoTurno)),
+    format("Es el turno de ~w.~n", [NuevoTurno]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% GESTIÓN DE JUGADORES Y FICHAS
@@ -163,6 +261,7 @@ colocar_letra(F, C, L) :-
     casilla(F, C, libre, none),
     retract(casilla(F, C, libre, none)),
     assert(casilla(F, C, ocupada, L)).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% FORMAR PALABRA
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -242,25 +341,6 @@ sumar_puntos(J, Letras, _, _, _) :-
     assert(jugador(J, Nuevo, Fichas)),
     format("~w ha sumado ~d puntos.~n", [J, Puntos]).
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% ABANDONAR PARTIDA
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% abandonar_partida(+Jugador)
-% abandonar_partida(+Jugador)
-abandonar_partida(J) :-
-    (   partida_activa(jugadores(J, Otro)) ; partida_activa(jugadores(Otro, J))
-    ->  format("El jugador ~w ha abandonado la partida. ~w gana.~n", [J, Otro]),
-        retractall(partida_activa(_)),
-        retractall(jugador(_, _, _)),
-        retractall(casilla(_, _, _, _)),
-        retractall(ficha_disponible(_, _))
-    ;   partida_activa(_)
-    ->  format("Error: el jugador ~w no participa en la partida actual.~n", [J]), fail
-    ;   format("Error: no hay ninguna partida activa.~n"), fail
-    ).
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% FUNCIONES AUXILIARES
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -297,13 +377,6 @@ generar_fichas(N, [L|R]) :-
     retract(ficha_disponible(L, _)),
     N1 is N - 1,
     generar_fichas(N1, R).
-
-reset_juego :- 
-    retractall(partida_activa(_)),
-    retractall(jugador(_, _, _)),
-    retractall(casilla(_, _, _, _)),
-    retractall(ficha_disponible(_, _)).
-
 
 % letras_disponibles/1 inicializa la bolsa solo si está vacía
 generar_fichas(0, []).
