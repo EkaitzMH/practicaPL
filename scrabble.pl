@@ -4,7 +4,7 @@
 test_tildes :-
     format("Prueba de caracteres: á, é, í, ó, ú, ñ, ü.~n").
 
-:- dynamic opcion/2.
+:- dynamic opcion/2.  % Es una estructura en la que se guarda los parametros de configuracion con su valor
 :- dynamic jugador/3.
 :- dynamic partida_activa/1.
 :- dynamic casilla/4.
@@ -24,6 +24,7 @@ opcion_valida(reparto_fichas, ['aleatorio', 'manual']).
 opcion_valida(modo_inicio, ['normal', 'alterno']).
 
 % ver_opcion(+Opcion)
+% Dado el nombre de una opcion(Idioma,Modo_juego,modo_reparto,modo_inicio), nos da su valor
 ver_opcion(O) :-
     opcion(O, V),
     format("~w: ~w~n", [O, V]).
@@ -31,6 +32,7 @@ ver_opcion(O) :-
 % establecer_opcion(+Opcion, +Valor)
 establecer_opcion(O, V) :-
     \+ partida_activa(_),
+
     opcion_valida(O, ValoresPosibles), % Consulta los valores válidos
     (   member(V, ValoresPosibles)    % Verifica si el valor es válido
     ->  (retract(opcion(O, _)) ; true),
@@ -56,6 +58,65 @@ preguntar_opcion(Opcion, Mensaje) :-
     ;   format("Valor no válido. Inténtelo de nuevo.~n~n"),
         preguntar_opcion(Opcion, Mensaje)
     ).
+
+
+
+% Todas las ociones validas para cada parametro de configuracion
+opcion_valida(idioma, castellano).
+opcion_valida(idioma, euskera).
+opcion_valida(idioma, ingles).
+opcion_valida(modo_juego, persona_vs_maquina).
+opcion_valida(modo_juego, persona_vs_persona).
+opcion_valida(reparto_fichas, aleatorio).
+opcion_valida(reparto_fichas, manual).
+opcion_valida(inicio_partida, normal).
+opcion_valida(inicio_partida, alterno).
+
+% valores por defecto
+:- dynamic opcion_inicializada/0.
+:- initialization(init_config).
+
+init_config :-
+    opcion_inicializada, !.
+init_config :-
+    assert(opcion(idioma, castellano)),
+    assert(opcion(modo_juego, persona_vs_persona)),
+    assert(opcion(reparto_fichas, aleatorio)),
+    assert(opcion(inicio_partida, normal)),
+    assert(opcion_inicializada).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% DICCIONARIO SEGÚN IDIOMA
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% cargar_diccionario/0 - Carga todas las palabras del idioma seleccionado
+cargar_diccionario :-
+    opcion(idioma, Idioma),
+    ruta_diccionario(Idioma, ArchivoRelativo),
+    source_file(cargar_diccionario, RutaFuente),
+    file_directory_name(RutaFuente, Dir),
+    atomic_list_concat([Dir, '/', ArchivoRelativo], RutaCompleta),
+    retractall(palabra_valida(_)),
+    open(RutaCompleta, read, S),
+    leer_palabras(S),
+    close(S).
+
+
+leer_palabras(S) :-
+    read_line_to_string(S, Linea),
+    (   Linea \= end_of_file
+    ->  string_upper(Linea, Mayus),
+        assert(palabra_valida(Mayus)),
+        leer_palabras(S)
+    ;   true).
+
+% ruta_diccionario(+Idioma, -Ruta)
+ruta_diccionario(castellano, 'palabras_castellano.txt').
+ruta_diccionario(euskera,    'palabras_euskera.txt').
+ruta_diccionario(ingles,     'palabras_ingles.txt').
+
+% palabra_valida(+Palabra) dinámico cargado desde fichero
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% INICIO Y GESTIÓN DE PARTIDAS
@@ -394,7 +455,6 @@ letras_disponibles(['A','B','C','D','E','F','G','H','I','J','K','L','M',
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% A COMPLETAR POSTERIORMENTE:
-%% formar_palabra/5
 %% mostrar_puntuación/0
 %% ver_resumen/0
 %% ver_historial/1
