@@ -112,9 +112,9 @@ leer_palabras(S) :-
     ;   true).
 
 % ruta_diccionario(+Idioma, -Ruta)
-ruta_diccionario(castellano, 'palabras_castellano.txt').
-ruta_diccionario(euskera,    'palabras_euskera.txt').
-ruta_diccionario(ingles,     'palabras_ingles.txt').
+ruta_diccionario(es, 'palabras_castellano.txt').
+ruta_diccionario(eus,    'palabras_euskera.txt').
+ruta_diccionario(en,     'palabras_ingles.txt').
 
 % palabra_valida(+Palabra) dinámico cargado desde fichero
 
@@ -154,7 +154,7 @@ iniciar_partida :-
     ).
 
 iniciar_partida :-
-    format("Error: No se ha configurado el modo de juego correctamente.~n"), fail.
+    format("Error: No se ha configurado el modo de juego correctamente. Ejecute el predicado configurar_opciones ~n"), fail.
 
 % iniciar_partida/1: Inicia una partida con un jugador contra la máquina
 iniciar_partida(Jugador) :-
@@ -331,13 +331,19 @@ colocar_letra(F, C, L) :-
 formar_palabra(J, O, F, C, P) :-
     partida_activa(_),
     jugador(J, _, Fichas),
-    atom_chars(P, Letras),
-    puede_colocar(P, O, F, C),
-    contiene_fichas(Fichas, Letras),
-    colocar_palabra(Letras, O, F, C),
-    actualizar_fichas_jugador(J, Letras),
-    sumar_puntos(J, Letras, O, F, C),
-    reponer_fichas(J).
+    string_upper(P, Mayus),
+    (   palabra_valida(Mayus)
+    ->  atom_chars(P, Letras),
+        puede_colocar(P, O, F, C),
+        contiene_fichas(Fichas, Letras),
+        colocar_palabra(Letras, O, F, C),
+        actualizar_fichas_jugador(J, Letras),
+        reponer_fichas(J),
+        sumar_puntos(J, Letras, O, F, C)
+    ;   format("La palabra '~w' no está en el diccionario.~n", [P]),
+        fail
+    ).
+
 
 % puede_colocar(+Palabra, +Orientacion, +Fila, +Columna)
 puede_colocar(P, horizontal, F, C) :-
