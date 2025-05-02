@@ -164,6 +164,8 @@ iniciar_partida(Jugador) :-
     assert(partida_activa(jugadores(Jugador, maquina))),
     inicializar_jugadores([Jugador, maquina]),
     inicializar_tablero,
+    cargar_diccionario,
+    inicializar_bolsa,
     repartir_fichas([Jugador, maquina]),
     inicializar_turno([Jugador, maquina]),
     format("Partida iniciada: ~w vs Máquina.~n", [Jugador]), !.
@@ -194,6 +196,8 @@ iniciar_partida(J1, J2) :-
     assert(partida_activa(jugadores(J1, J2))),
     inicializar_jugadores([J1, J2]),
     inicializar_tablero,
+    cargar_diccionario,
+    inicializar_bolsa,
     repartir_fichas([J1, J2]),
     inicializar_turno([J1, J2]),
     format("Partida iniciada: ~w vs ~w.~n", [J1, J2]),
@@ -297,6 +301,57 @@ repartir_fichas([J|R]) :-
 mostrar_fichas(J) :-
     jugador(J, _, Fichas),
     format("Fichas de ~w: ~w~n", [J, Fichas]).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% GESTIÓN DE FICHAS POR IDIOMA
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% inicializar_bolsa/0 - Prepara la bolsa de fichas según el idioma actual
+inicializar_bolsa :-
+    retractall(ficha_disponible(_, _)),
+    opcion(idioma, Idioma),
+    fichas_por_idioma(Idioma, Distribucion),
+    agregar_fichas(Distribucion).
+
+% fichas_por_idioma(+Idioma, -Distribucion)
+% Distribución = [letra-cantidad, ...]
+fichas_por_idioma(es, [a-12, e-12, o-9, s-6, r-5, n-5, l-4, d-3, t-4, u-5, i-6, c-4, m-2, p-2, b-2, g-2, v-1, h-2, f-1, y-1, j-1, ñ-1, q-1, z-1, x-1]).
+fichas_por_idioma(eus, [a-14, e-12, i-9, o-6, u-6, n-8, d-4, t-8, l-2, r-7, k-5, g-2, b-2, z-2, m-1, s-2, h-2, p-1, x-1, j-1, f-1]).
+fichas_por_idioma(en, [e-12, a-9, i-9, o-8, n-6, r-6, t-6, l-4, s-4, u-4, d-4, g-3, b-2, c-2, m-2, p-2, f-2, h-2, v-2, w-2, y-2, k-1, j-1, x-1, q-1, z-1]).
+
+% agregar_fichas(+ListaLetraCantidad)
+agregar_fichas([]).
+agregar_fichas([Letra-Cant | Resto]) :-
+    forall(between(1, Cant, _), assert(ficha_disponible(Letra, 1))),
+    agregar_fichas(Resto).
+
+% ver_bolsa/0 - Muestra cuántas fichas quedan en la bolsa, agrupadas por letra
+ver_bolsa :-
+    findall(L, ficha_disponible(L, _), Todas),
+    msort(Todas, Ordenadas),
+    agrupar_fichas(Ordenadas, Agrupadas),
+    imprimir_bolsa(Agrupadas).
+
+% agrupar_fichas(+ListaLetras, -ListaLetra-Cantidad)
+agrupar_fichas([], []).
+agrupar_fichas([H|T], [H-N|R]) :-
+    same_letter_count(H, [H|T], N, Resto),
+    agrupar_fichas(Resto, R).
+
+same_letter_count(_, [], 0, []).
+same_letter_count(X, [X|T], N, Resto) :-
+    same_letter_count(X, T, N1, Resto),
+    N is N1 + 1.
+same_letter_count(X, [Y|T], 0, [Y|T]) :-
+    X \= Y.
+
+% imprimir_bolsa(+ListaLetra-Cantidad)
+imprimir_bolsa([]).
+imprimir_bolsa([L-C|R]) :-
+    format("~w: ~d~n", [L, C]),
+    imprimir_bolsa(R).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% TABLERO
