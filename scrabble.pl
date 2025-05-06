@@ -315,7 +315,7 @@ inicializar_bolsa :-
 
 % fichas_por_idioma(+Idioma, -Distribucion)
 % Distribución = [letra-cantidad, ...]
-fichas_por_idioma(es, [a-12, e-12, o-9, s-6, r-5, n-5, l-4, d-3, t-4, u-5, i-6, c-4, m-2, p-2, b-2, g-2, v-1, h-2, f-1, y-1, j-1, ñ-1, q-1, z-1, x-1]).
+fichas_por_idioma(es, [a-12, e-12, o-9, s-6, r-5, n-5, l-4, d-3, t-4, u-5, i-6, c-4, m-2, p-2, b-2, g-2, v-1, h-2, f-1, y-1, j-1, 'ñ'-1, q-1, z-1, x-1]).
 fichas_por_idioma(eus, [a-14, e-12, i-9, o-6, u-6, n-8, d-4, t-8, l-2, r-7, k-5, g-2, b-2, z-2, m-1, s-2, h-2, p-1, x-1, j-1, f-1]).
 fichas_por_idioma(en, [e-12, a-9, i-9, o-8, n-6, r-6, t-6, l-4, s-4, u-4, d-4, g-3, b-2, c-2, m-2, p-2, f-2, h-2, v-2, w-2, y-2, k-1, j-1, x-1, q-1, z-1]).
 
@@ -379,10 +379,75 @@ ver_tablero :-
         write('   '), % Espacio inicial para las líneas horizontales
         forall(between(1, 15, _), write('----')), nl % Línea horizontal entre filas
     )).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% VALOR PALABRA
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% valor_letra(+Letra, +Idioma, -Puntos)
+valor_letra(a, es, 1) :- !.
+valor_letra(e, es, 1) :- !.
+valor_letra(o, es, 1) :- !.
+valor_letra(s, es, 1) :- !.
+valor_letra(r, es, 1) :- !.
+valor_letra(n, es, 1) :- !.
+valor_letra(l, es, 1) :- !.
+valor_letra(d, es, 2) :- !.
+valor_letra(t, es, 1) :- !.
+valor_letra(u, es, 1) :- !.
+valor_letra(i, es, 1) :- !.
+valor_letra(c, es, 3) :- !.
+valor_letra(m, es, 3) :- !.
+valor_letra(p, es, 3) :- !.
+valor_letra(b, es, 3) :- !.
+valor_letra(g, es, 2) :- !.
+valor_letra(v, es, 4) :- !.
+valor_letra(h, es, 4) :- !.
+valor_letra(f, es, 4) :- !.
+valor_letra(y, es, 4) :- !.
+valor_letra(j, es, 8) :- !.
+valor_letra('ñ', es, 8) :- !.
+valor_letra(q, es, 5) :- !.
+valor_letra(z, es, 10) :- !.
+valor_letra(x, es, 8) :- !.
+valor_letra(w, es, 4) :- !.
+valor_letra(k, es, 5) :- !.
+
+valor_letra(a, eus, 1).
+valor_letra(e, eus, 1).
+valor_letra(i, eus, 1).
+valor_letra(o, eus, 1).
+valor_letra(u, eus, 1).
+valor_letra(n, eus, 1).
+valor_letra(d, eus, 2).
+valor_letra(t, eus, 1).
+valor_letra(l, eus, 1).
+valor_letra(r, eus, 1).
+valor_letra(k, eus, 2).
+valor_letra(g, eus, 2).
+valor_letra(b, eus, 2).
+valor_letra(z, eus, 4).
+valor_letra(m, eus, 2).
+valor_letra(s, eus, 2).
+valor_letra(h, eus, 4).
+valor_letra(p, eus, 3).
+valor_letra(x, eus, 4).
+valor_letra(j, eus, 4).
+valor_letra(v, eus, 3).
+valor_letra(f, eus, 4).
+valor_letra(w, eus, 4).
+valor_letra(c, eus, 5).
+valor_letra(q, eus, 5).
+valor_letra(y, eus, 5).
+valor_letra(_, eus, 0).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% FORMAR PALABRA
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% puntuaje_letras(+Letras, +Idioma, -Puntos)
+puntuaje_palabra(Letras, Idioma, Puntos) :-
+    maplist({Idioma}/[L, V]>>valor_letra(L, Idioma, V), Letras, Valores),
+    sum_list(Valores, Puntos).
 
 % filepath: c:\Users\uleon\Desktop\TRAGICERA6\PL\practicaPL\scrabble.pl
 % formar_palabra(+Jugador, +Orientacion, +Fila, +Columna, +Palabra)
@@ -425,8 +490,8 @@ formar_palabra(J, O, F, C, P) :-
     actualizar_fichas_jugador(J, LetrasUsadas), % Solo elimina las letras realmente usadas
     format("Las fichas del jugador ~w han sido actualizadas.~n", [J]),
     reponer_fichas(J),
-    format("Las fichas del jugador ~w han sido repuestas.~n", [J]),
-    sumar_puntos(J, Letras, O, F, C),
+  % format("Las fichas del jugador ~w han sido repuestas.~n", [J]),
+    sumar_puntos(J, Letras),
     format("Los puntos del jugador ~w han sido actualizados.~n", [J]).
 
 formar_palabra(J, _, _, _, _) :-
@@ -555,16 +620,15 @@ remove_letras(F, [L|Ls], R) :-
     select(L, F, F1),
     remove_letras(F1, Ls, R).
 
-% sumar_puntos(+J, +Letras, +O, +F, +C)
-sumar_puntos(J, Letras, _, _, _) :-
-    length(Letras, N),
-    Puntos is N * 1, % Simulación: 1 punto por letra
-    jugador(J, Prev, Fichas),
-    retract(jugador(J, Prev, Fichas)),
-    Nuevo is Prev + Puntos,
-    assert(jugador(J, Nuevo, Fichas)),
-    format("~w ha sumado ~d puntos.~n", [J, Puntos]).
 
+% sumar_puntos(+Jugador, +Letras)
+sumar_puntos(J, Letras) :-
+    opcion(idioma, Idioma),
+    puntuaje_palabra(Letras, Idioma, Puntos),
+    jugador(J, Anterior, Fichas),
+    retract(jugador(J, Anterior, Fichas)),
+    Nuevo is Anterior + Puntos,
+    assert(jugador(J, Nuevo, Fichas)).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% FUNCIONES AUXILIARES
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -579,11 +643,11 @@ reponer_fichas(J) :-
     format("Fichas disponibles en la bolsa: ~w.~n", [Bolsa]),
     min(M, Bolsa, CantidadAReponer), % Calcula cuántas fichas se pueden reponer
     generar_fichas(CantidadAReponer, Nuevas),
-    format("Fichas nuevas para el jugador ~w: ~w.~n", [J, Nuevas]),
+    %format("Fichas nuevas para el jugador ~w: ~w.~n", [J, Nuevas]),
     append(FichasAct, Nuevas, Final),
     retract(jugador(J, P, _)),
-    assert(jugador(J, P, Final)),
-    format("Fichas finales del jugador ~w: ~w.~n", [J, Final]).
+    assert(jugador(J, P, Final)).
+    % format("Fichas finales del jugador ~w: ~w.~n", [J, Final]).
 
 % total_fichas_disponibles(-N)
 total_fichas_disponibles(N) :-
