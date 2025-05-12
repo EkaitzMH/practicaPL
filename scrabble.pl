@@ -356,6 +356,69 @@ imprimir_bolsa([L-C|R]) :-
 %% TABLERO
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%Casilla_Especial
+casilla_especial(1, 1, palabra, 3).
+casilla_especial(1, 8, palabra, 3).
+casilla_especial(1, 15, palabra, 3).
+casilla_especial(8, 8, palabra, 2).
+casilla_especial(8, 15, palabra, 3).
+casilla_especial(8, 1, palabra, 3).
+casilla_especial(15, 1, palabra, 3).
+casilla_especial(15, 8, palabra, 3).
+casilla_especial(15, 15, palabra, 3).
+casilla_especial(1, 4, letra, 2).
+casilla_especial(1, 12, letra, 2).
+casilla_especial(3, 7, letra, 2).
+casilla_especial(3, 9, letra, 2).
+casilla_especial(4, 1, letra, 2).
+casilla_especial(4, 8, letra, 2).
+casilla_especial(4, 15, letra, 2).
+casilla_especial(7, 3, letra, 2).
+casilla_especial(7, 7, letra, 2).
+casilla_especial(7, 9, letra, 2).
+casilla_especial(7, 13, letra, 2).
+casilla_especial(8, 4, letra, 2).
+casilla_especial(8, 12, letra, 2).
+casilla_especial(9, 3, letra, 2).
+casilla_especial(9, 7, letra, 2).
+casilla_especial(9, 9, letra, 2).
+casilla_especial(9, 13, letra, 2).
+casilla_especial(12, 1, letra, 2).
+casilla_especial(12, 8, letra, 2).
+casilla_especial(12, 15, letra, 2).
+casilla_especial(13, 7, letra, 2).
+casilla_especial(13, 9, letra, 2).
+casilla_especial(12, 4, letra, 2).
+casilla_especial(12, 12, letra, 2).
+casilla_especial(2, 2, palabra, 2).
+casilla_especial(2, 14, palabra, 2).
+casilla_especial(14, 2, palabra, 2).
+casilla_especial(14, 14, palabra, 2).
+casilla_especial(3, 3, palabra, 2).
+casilla_especial(3, 13, palabra, 2).
+casilla_especial(13, 3, palabra, 2).
+casilla_especial(13, 13, palabra, 2).
+casilla_especial(4, 4, palabra, 2).
+casilla_especial(4, 12, palabra, 2).
+casilla_especial(12, 4, palabra, 2).
+casilla_especial(12, 12, palabra, 2).
+casilla_especial(5, 5, palabra, 2).
+casilla_especial(5, 11, palabra, 2).
+casilla_especial(11, 5, palabra, 2).
+casilla_especial(11, 11, palabra, 2).
+casilla_especial(2, 6, letra, 3).
+casilla_especial(2, 10, letra, 3).
+casilla_especial(14, 6, letra, 3).
+casilla_especial(14, 10, letra, 3).
+casilla_especial(6, 2, letra, 3).
+casilla_especial(6, 6, letra, 3).
+casilla_especial(6, 10, letra, 3).
+casilla_especial(6, 14, letra, 3).
+casilla_especial(10, 2, letra, 3).
+casilla_especial(10, 6, letra, 3).
+casilla_especial(10, 10, letra, 3).
+casilla_especial(10, 14, letra, 3).
+
 % inicializar_tablero/0
 inicializar_tablero :-
     retractall(casilla(_,_,_,_)),
@@ -372,7 +435,17 @@ ver_tablero :-
     forall(between(1, 15, F), (
         format("~|~`0t~d~2+ |", [F]), % Número de fila con separación
         forall(between(1, 15, C), (
-            (casilla(F, C, libre, _) -> write('   '); casilla(F, C, ocupada, Letra), format(" ~w ", [Letra])),
+            (casilla(F, C, ocupada, Letra) ->
+    format(" ~w ", [Letra])
+;
+    (casilla_especial(F, C, letra, 2) -> write('L*2');
+     casilla_especial(F, C, letra, 3) -> write('L*3');
+     casilla_especial(F, C, palabra, 2) -> write('P*2');
+     casilla_especial(F, C, palabra, 3) -> write('P*3');
+     write('   ')
+    )
+),
+            
             write('|') % Separador vertical
         )),
         nl,
@@ -444,10 +517,36 @@ valor_letra(_, eus, 0).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-% puntuaje_letras(+Letras, +Idioma, -Puntos)
-puntuaje_palabra(Letras, Idioma, Puntos) :-
-    maplist({Idioma}/[L, V]>>valor_letra(L, Idioma, V), Letras, Valores),
-    sum_list(Valores, Puntos).
+% puntuaje_palabra(+Letras, +Idioma, +Orientacion, +Fila, +Columna, -Puntos)
+puntuaje_palabra(Letras, Idioma, O, F, C, PuntosTotales) :-
+    puntuar_letras(Letras, Idioma, O, F, C, 0, 1, PuntosTotales).
+
+% puntuar_letras(+Letras, +Idioma, +Orientacion, +F, +C, +Acum, +MultPalabra, -PuntosFinal)
+puntuar_letras([], _, _, _, _, Acum, MultPalabra, Total) :-
+    Total is Acum * MultPalabra.
+puntuar_letras([L|Ls], Idioma, horizontal, F, C, Acum, MPW, Total) :-
+    letra_valor(L, F, C, Idioma, ValLetra, MultPalabra),
+    NuevoAcum is Acum + ValLetra,
+    ( MultPalabra > 1 -> NuevoMPW is MPW * MultPalabra ; NuevoMPW = MPW ),
+    C1 is C + 1,
+    puntuar_letras(Ls, Idioma, horizontal, F, C1, NuevoAcum, NuevoMPW, Total).
+puntuar_letras([L|Ls], Idioma, vertical, F, C, Acum, MPW, Total) :-
+    letra_valor(L, F, C, Idioma, ValLetra, MultPalabra),
+    NuevoAcum is Acum + ValLetra,
+    ( MultPalabra > 1 -> NuevoMPW is MPW * MultPalabra ; NuevoMPW = MPW ),
+    F1 is F + 1,
+    puntuar_letras(Ls, Idioma, vertical, F1, C, NuevoAcum, NuevoMPW, Total).
+
+% letra_valor(+Letra, +Fila, +Columna, +Idioma, -ValorFinal, -MultPalabra)
+letra_valor(L, F, C, Idioma, ValorLetra, PMult) :-
+    downcase_atom(L, Lmin),
+    valor_letra(Lmin, Idioma, Base),
+    (   casilla(F, C, libre, _) ->
+        (   casilla_especial(F, C, letra, LMult) -> ValorLetra is Base * LMult ; ValorLetra = Base ),
+        (   casilla_especial(F, C, palabra, PMult) -> true ; PMult = 1 )
+    ;   ValorLetra = Base,
+        PMult = 1
+    ).
 
 % filepath: c:\Users\uleon\Desktop\TRAGICERA6\PL\practicaPL\scrabble.pl
 % formar_palabra(+Jugador, +Orientacion, +Fila, +Columna, +Palabra)
@@ -485,13 +584,14 @@ formar_palabra(J, O, F, C, P) :-
     ->  format("El jugador ~w tiene las fichas necesarias para formar la palabra '~w'.~n", [J, P])
     ;   format("Error: El jugador ~w no tiene las fichas necesarias para formar la palabra '~w'.~n", [J, P]), fail
     ),
+    sumar_puntos(J, Letras, O,F,C),
     colocar_palabra(Letras, O, F, C),
     format("La palabra '~w' ha sido colocada en el tablero.~n", [P]),
     actualizar_fichas_jugador(J, LetrasUsadas), % Solo elimina las letras realmente usadas
     format("Las fichas del jugador ~w han sido actualizadas.~n", [J]),
     reponer_fichas(J),
   % format("Las fichas del jugador ~w han sido repuestas.~n", [J]),
-    sumar_puntos(J, Letras),
+    
     format("Los puntos del jugador ~w han sido actualizados.~n", [J]).
 
 formar_palabra(J, _, _, _, _) :-
@@ -621,10 +721,10 @@ remove_letras(F, [L|Ls], R) :-
     remove_letras(F1, Ls, R).
 
 
-% sumar_puntos(+Jugador, +Letras)
-sumar_puntos(J, Letras) :-
+% sumar_puntos(+Jugador, +Letras, +O, +F, +C)
+sumar_puntos(J, Letras, O, F, C) :-
     opcion(idioma, Idioma),
-    puntuaje_palabra(Letras, Idioma, Puntos),
+    puntuaje_palabra(Letras, Idioma, O, F, C, Puntos),
     jugador(J, Anterior, Fichas),
     retract(jugador(J, Anterior, Fichas)),
     Nuevo is Anterior + Puntos,
