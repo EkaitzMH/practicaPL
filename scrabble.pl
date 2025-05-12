@@ -797,4 +797,5 @@ letras_disponibles(['A','B','C','D','E','F','G','H','I','J','K','L','M',
 %% Comentar agrupar 
 %% Valor letra en ingles, y asehurarse de que los valores son los correctos en euskera y castellano
 % Revisar los comentarios de FUNCIONES AUXILIARES No creo que esten bien
+%% Implementar reparto de fichas(manual y lo otro) y inicio de partida(alterno y lo otro)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
