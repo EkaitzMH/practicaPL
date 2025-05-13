@@ -23,17 +23,6 @@ opcion_valida(modo_juego, ['jugadorVSjugador', 'jugadorVSmaquina']).
 opcion_valida(reparto_fichas, ['aleatorio', 'manual']).
 opcion_valida(modo_inicio, ['normal', 'alterno']).
 
-% Todas las ociones validas para cada parametro de configuracion
-opcion_valida(idioma, castellano).
-opcion_valida(idioma, euskera).
-opcion_valida(idioma, ingles).
-opcion_valida(modo_juego, persona_vs_maquina).
-opcion_valida(modo_juego, persona_vs_persona).
-opcion_valida(reparto_fichas, aleatorio).
-opcion_valida(reparto_fichas, manual).
-opcion_valida(inicio_partida, normal).
-opcion_valida(inicio_partida, alterno).
-
 % ver_opcion(+Opcion)
 % Dado el nombre de una opcion(Idioma,Modo_juego,modo_reparto,modo_inicio), nos da su valor
 ver_opcion(O) :-
@@ -99,7 +88,6 @@ cargar_diccionario :-
     leer_palabras(S),
     close(S).
 
-
 leer_palabras(S) :-
     read_line_to_string(S, Linea),
     (   Linea \= end_of_file
@@ -109,7 +97,7 @@ leer_palabras(S) :-
     ;   true).
 
 % ruta_diccionario(+Idioma, -Ruta)
-ruta_diccionario(es, 'palabras_castellano.txt').
+ruta_diccionario(es, 'palabras_castellano_sin_tildes.txt').
 ruta_diccionario(eus,    'palabras_euskera.txt').
 ruta_diccionario(en,     'palabras_ingles.txt').
 
@@ -277,6 +265,18 @@ cambiar_turno :-
     assert(turno_actual(NuevoTurno)),
     format("Es el turno de ~w.~n", [NuevoTurno]).
 
+% pasar_turno(+Jugador)
+pasar_turno(J) :-
+    (   \+ partida_activa(_)
+    ->  format("Error: No hay una partida activa.~n"), fail
+    ;   true
+    ),
+    (   turno_actual(J)
+    ->  cambiar_turno,
+        format("El turno ha pasado al siguiente jugador.~n")
+    ;   format("Error: No es el turno del jugador ~w.~n", [J]), fail
+    ).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% GESTIÓN DE JUGADORES Y FICHAS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -301,7 +301,6 @@ mostrar_fichas(J) :-
     jugador(J, _, Fichas),
     format("Fichas de ~w: ~w~n", [J, Fichas]).
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% GESTIÓN DE FICHAS POR IDIOMA
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -314,24 +313,30 @@ inicializar_bolsa :-
     agregar_fichas(Distribucion).
 
 % fichas_por_idioma(+Idioma, -Distribucion)
-% Distribución = [letra-cantidad, ...]
-fichas_por_idioma(es, [a-12, e-12, o-9, s-6, r-5, n-5, l-4, d-3, t-4, u-5, i-6, c-4, m-2, p-2, b-2, g-2, v-1, h-2, f-1, y-1, j-1, 'ñ'-1, q-1, z-1, x-1]).
-fichas_por_idioma(eus, [a-14, e-12, i-9, o-6, u-6, n-8, d-4, t-8, l-2, r-7, k-5, g-2, b-2, z-2, m-1, s-2, h-2, p-1, x-1, j-1, f-1]).
-fichas_por_idioma(en, [e-12, a-9, i-9, o-8, n-6, r-6, t-6, l-4, s-4, u-4, d-4, g-3, b-2, c-2, m-2, p-2, f-2, h-2, v-2, w-2, y-2, k-1, j-1, x-1, q-1, z-1]).
+fichas_por_idioma(es, [(a, 12), (e, 12), (o, 9), (s, 6), (r, 5), (n, 5), (l, 4), (d, 3), (t, 4), (u, 5), 
+                       (i, 6), (c, 4), (m, 2), (p, 2), (b, 2), (g, 2), (v, 1), (h, 2), (f, 1), (y, 1), 
+                       (j, 1), ('ñ', 1), (q, 1), (z, 1), (x, 1)]).
+
+fichas_por_idioma(eus, [(a, 14), (e, 12), (i, 9), (o, 6), (u, 6), (n, 8), (d, 4), (t, 8), (l, 2), (r, 7), 
+                        (k, 5), (g, 2), (b, 2), (z, 2), (m, 1), (s, 2), (h, 2), (p, 1), (x, 1), (j, 1), 
+                        (f, 1)]).
+
+fichas_por_idioma(en, [(e, 12), (a, 9), (i, 9), (o, 8), (n, 6), (r, 6), (t, 6), (l, 4), (s, 4), (u, 4), 
+                       (d, 4), (g, 3), (b, 2), (c, 2), (m, 2), (p, 2), (f, 2), (h, 2), (v, 2), (w, 2), 
+                       (y, 2), (k, 1), (j, 1), (x, 1), (q, 1), (z, 1)]).
 
 % agregar_fichas(+ListaLetraCantidad)
-agregar_fichas([]).
-agregar_fichas([Letra-Cant | Resto]) :-
-    forall(between(1, Cant, _), assert(ficha_disponible(Letra, 1))),
+agregar_fichas([]) :- !.
+agregar_fichas([(Letra, Cant) | Resto]) :-
+    assert(ficha_disponible(Letra, Cant)), % Añade la letra con su cantidad directamente
     agregar_fichas(Resto).
 
 % ver_bolsa/0 - Muestra cuántas fichas quedan en la bolsa, agrupadas por letra
 ver_bolsa :-
-    findall(L, ficha_disponible(L, _), Todas),
-    msort(Todas, Ordenadas),
-    agrupar_fichas(Ordenadas, Agrupadas),
-    imprimir_bolsa(Agrupadas).
+    findall(L-C, ficha_disponible(L, C), Fichas),
+    imprimir_bolsa(Fichas).
 
+/*
 % agrupar_fichas(+ListaLetras, -ListaLetra-Cantidad)
 agrupar_fichas([], []).
 agrupar_fichas([H|T], [H-N|R]) :-
@@ -343,14 +348,13 @@ same_letter_count(X, [X|T], N, Resto) :-
     same_letter_count(X, T, N1, Resto),
     N is N1 + 1.
 same_letter_count(X, [Y|T], 0, [Y|T]) :-
-    X \= Y.
+    X \= Y.*/
 
 % imprimir_bolsa(+ListaLetra-Cantidad)
 imprimir_bolsa([]).
 imprimir_bolsa([L-C|R]) :-
     format("~w: ~d~n", [L, C]),
     imprimir_bolsa(R).
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% TABLERO
@@ -379,6 +383,7 @@ ver_tablero :-
         write('   '), % Espacio inicial para las líneas horizontales
         forall(between(1, 15, _), write('----')), nl % Línea horizontal entre filas
     )).
+    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% VALOR PALABRA
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -443,13 +448,11 @@ valor_letra(_, eus, 0).
 %% FORMAR PALABRA
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
 % puntuaje_letras(+Letras, +Idioma, -Puntos)
 puntuaje_palabra(Letras, Idioma, Puntos) :-
     maplist({Idioma}/[L, V]>>valor_letra(L, Idioma, V), Letras, Valores),
     sum_list(Valores, Puntos).
 
-% filepath: c:\Users\uleon\Desktop\TRAGICERA6\PL\practicaPL\scrabble.pl
 % formar_palabra(+Jugador, +Orientacion, +Fila, +Columna, +Palabra)
 formar_palabra(J, O, F, C, P) :-
     format("Intentando formar la palabra '~w' por el jugador ~w en orientación ~w desde la posición (~w, ~w).~n", [P, J, O, F, C]),
@@ -492,12 +495,13 @@ formar_palabra(J, O, F, C, P) :-
     reponer_fichas(J),
   % format("Las fichas del jugador ~w han sido repuestas.~n", [J]),
     sumar_puntos(J, Letras),
-    format("Los puntos del jugador ~w han sido actualizados.~n", [J]).
-
+    format("Los puntos del jugador ~w han sido actualizados.~n", [J]),
+    cambiar_turno, !.
+/*
 formar_palabra(J, _, _, _, _) :-
     \+ turno_actual(J),
     format("Error: No es el turno del jugador ~w.~n", [J]),
-    fail.
+    fail.*/
 
 % letras_en_tablero(+Letras, +Orientacion, +Fila, +Columna, -LetrasEnTablero)
 letras_en_tablero([], _, _, _, []). % Caso base: no hay más letras que procesar.
@@ -641,7 +645,7 @@ reponer_fichas(J) :-
     format("El jugador ~w tiene ~w fichas. Necesita reponer ~w fichas.~n", [J, N, M]),
     total_fichas_disponibles(Bolsa),
     format("Fichas disponibles en la bolsa: ~w.~n", [Bolsa]),
-    min(M, Bolsa, CantidadAReponer), % Calcula cuántas fichas se pueden reponer
+    CantidadAReponer is min(M, Bolsa), % Calcula cuántas fichas se pueden reponer
     generar_fichas(CantidadAReponer, Nuevas),
     %format("Fichas nuevas para el jugador ~w: ~w.~n", [J, Nuevas]),
     append(FichasAct, Nuevas, Final),
@@ -651,37 +655,43 @@ reponer_fichas(J) :-
 
 % total_fichas_disponibles(-N)
 total_fichas_disponibles(N) :-
-    findall(L, ficha_disponible(L, _), Ls),
-    length(Ls, N).
+    findall(Cantidad, ficha_disponible(_, Cantidad), Cantidades),
+    sum_list(Cantidades, N).
 
-% min/3 para obtener el mínimo entre dos valores
-min(A, B, A) :- A =< B, !.
-min(_, B, B).
-
-% actualizar generar_fichas para usar la bolsa
 % generar_fichas(+N, -Fichas)
-generar_fichas(0, []).
+generar_fichas(0, []) :- !.
 generar_fichas(N, [L|R]) :-
-    N > 0,
     findall(F, ficha_disponible(F, _), Bolsa),
     Bolsa \= [],
     random_member(L, Bolsa),
-    retract(ficha_disponible(L, _)),
+    reducir_ficha(L),
     N1 is N - 1,
     generar_fichas(N1, R).
 
+% Reducir la cantidad de fichas disponibles para una letra
+reducir_ficha(L) :-
+    ficha_disponible(L, Cantidad),
+    Cantidad > 0,
+    CantidadNueva is Cantidad - 1,
+    retract(ficha_disponible(L, Cantidad)),
+    assert(ficha_disponible(L, CantidadNueva)).
+
+reducir_ficha(L) :-
+    ficha_disponible(L, 0),
+    retract(ficha_disponible(L, 0)).
+
 % letras_disponibles/1 inicializa la bolsa solo si está vacía
-generar_fichas(0, []).
+/*generar_fichas(0, []).
 generar_fichas(N, [L|R]) :-
     N > 0,
     letras_disponibles(Letras),
     random_member(L, Letras),
     N1 is N - 1,
-    generar_fichas(N1, R).
-
+    generar_fichas(N1, R).*/
+/*
 % letras_disponibles(-Lista)
 letras_disponibles(['A','B','C','D','E','F','G','H','I','J','K','L','M',
-                    'N','Ñ','O','P','Q','R','S','T','U','V','W','X','Y','Z','_']).
+                    'N','Ñ','O','P','Q','R','S','T','U','V','W','X','Y','Z','_']).*/
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
