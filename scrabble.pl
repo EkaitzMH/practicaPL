@@ -1,7 +1,6 @@
 % Configurar la codificación de entrada y salida como UTF-8
 :- set_prolog_flag(encoding, utf8).
 
-
 :- dynamic opcion/2.  % Es una estructura en la que se guarda los parametros de configuracion con su valor
 :- dynamic jugador/3. % Es una estructura en la que se guarda el nombre del jugador, su puntuacion y sus fichas
 :- dynamic partida_activa/1. %Guarda si una partida esta activa o no
@@ -333,21 +332,6 @@ ver_bolsa :-
     findall(L-C, ficha_disponible(L, C), Fichas),
     imprimir_bolsa(Fichas).
 
-/*
-% agrupar_fichas(+ListaLetras, -ListaLetra-Cantidad)
-% agrupa los elementos de ListaLetras en la lista de pares Letra-Cantidad
-agrupar_fichas([], []).
-agrupar_fichas([H|T], [H-N|R]) :-
-    same_letter_count(H, [H|T], N, Resto),
-    agrupar_fichas(Resto, R).
-
-same_letter_count(_, [], 0, []).
-same_letter_count(X, [X|T], N, Resto) :-
-    same_letter_count(X, T, N1, Resto),
-    N is N1 + 1.
-same_letter_count(X, [Y|T], 0, [Y|T]) :-
-    X \= Y.*/
-
 % imprimir_bolsa(+ListaLetra-Cantidad)
 imprimir_bolsa([]).
 imprimir_bolsa([L-C|R]) :-
@@ -531,10 +515,6 @@ puntuaje_palabra(Letras, Idioma, Puntos) :-
     sum_list(Valores, Puntos).
 
 % formar_palabra(+Jugador, +Orientacion, +Fila, +Columna, +Palabra)
-% Tiene exito si el jugador Jugador puede formar la palabra Palabra empezando en la posicion Fila,Columna y en la orientacion Orientacion
-% Si puede hacerlo se colocara la plabra en el tablero y se le sumaran los puntos al jugador Jugador
-% En caso de que la plabra no exista, el jugador no tenga las fichas necesarias,no sea su turno, no este en la partida,
-% la palabra no quepa en el tablero o no haya una partida activa se lanzara un error anunciando al jugador el motivo del error
 formar_palabra(J, O, F, C, P) :-
     %format("Intentando formar la palabra '~w' por el jugador ~w en orientación ~w desde la posición (~w, ~w).~n", [P, J, O, F, C]),
     (   partida_activa(_)
@@ -559,6 +539,13 @@ formar_palabra(J, O, F, C, P) :-
     ->  true % La palabra cabe en el tablero
     ;   format("Error: La palabra '~w' no puede colocarse en el tablero.~n", [P]), fail
     ),
+    (   tablero_vacio % Si es el primer turno (tablero vacío)
+    -> (  pasa_por_casilla_central(F, C, O, P) % La palabra tiene que pasar por el centro
+          -> true
+          ; format("En el primer turno, la palabra debe pasar por la casilla central (8,8)."), fail
+       )
+    ;  true
+    ),
     letras_en_tablero(Letras, O, F, C, LetrasEnTablero), % Obtiene las letras que ya están en el tablero
     %format("Letras ya colocadas en el tablero: ~w.~n", [LetrasEnTablero]),
     subtract(Letras, LetrasEnTablero, LetrasUsadas), % Calcula las letras que el jugador realmente usó
@@ -569,21 +556,15 @@ formar_palabra(J, O, F, C, P) :-
     ->  true % El jugador tiene las letras necesarias para formar la palabra
     ;   format("Error: El jugador ~w no tiene las fichas necesarias para formar la palabra '~w'.~n", [J, P]), fail
     ),
-    sumar_puntos(J, Letras, O,F,C), % Suma los puntos al jugador
     colocar_palabra(Letras, O, F, C), % Coloca la palabra en el tablero
     format("La palabra '~w' ha sido colocada en el tablero.~n", [P]),
     actualizar_fichas_jugador(J, LetrasUsadas), % Solo elimina las letras realmente usadas
     %format("Las fichas del jugador ~w han sido actualizadas.~n", [J]),
     reponer_fichas(J), % Repone las fichas del jugador
   % format("Las fichas del jugador ~w han sido repuestas.~n", [J]),
-    sumar_puntos(J, Letras),
+    sumar_puntos(J, Letras, O, F, C),
     format("Los puntos del jugador ~w han sido actualizados.~n", [J]),
     cambiar_turno, !.
-/*
-formar_palabra(J, _, _, _, _) :-
-    \+ turno_actual(J),
-    format("Error: No es el turno del jugador ~w.~n", [J]),
-    fail.*/
 
 % letras_en_tablero(+Letras, +Orientacion, +Fila, +Columna, -LetrasEnTablero)
 % Tiene exito si LetrasEnTablero es la lista de letras que ya están ocupando el tablero en la posición Fila,Columna
@@ -604,6 +585,26 @@ letras_en_tablero([L|Ls], vertical, F, C, Resto) :-
     \+ casilla(F, C, ocupada, L), % La casilla no está ocupada con la letra correspondiente.
     F1 is F + 1, % Avanza a la siguiente fila.
     letras_en_tablero(Ls, vertical, F1, C, Resto).
+
+% tablero_vacio/0
+% Tiene éxito si todas las casillas del tablero están libres.
+tablero_vacio :-
+    \+ casilla(_, _, ocupada, _). % Falla si encuentra alguna casilla ocupada.
+
+% pasa_por_casilla_central(+Fila, +Columna, +Orientacion, +Palabra)
+% Comprueba si la palabra pasa por la casilla central (8,8).
+pasa_por_casilla_central(F, C, Orientacion, Palabra) :-
+    atom_length(Palabra, Longitud),
+    (   Orientacion = horizontal
+    ->  F = 8, % La fila debe ser 8
+        8 >= C, % La casilla central está a la derecha o en la posición inicial
+        C + Longitud - 1 >= 8 % La casilla central está dentro del rango de columnas ocupadas
+    ;   Orientacion = vertical
+    ->  C = 8, % La columna debe ser 8
+        8 >= F, % La casilla central está debajo o en la posición inicial
+        F + Longitud - 1 >= 8 % La casilla central está dentro del rango de filas ocupadas
+    ;   fail % Si no es horizontal ni vertical, falla
+    ).
 
 % puede_colocar(+Palabra, +Orientacion, +Fila, +Columna)
 % Tiene exito si la palabra Palabra puede colocarse en el tablero en la orientacion Orientacion
@@ -711,6 +712,35 @@ sumar_puntos(J, Letras, O, F, C) :-
 % que se encuentra en la orientacion Orientacion, empezando la posicion Fila ,Columna
 puntuaje_palabra(Letras, Idioma, O, F, C, PuntosTotales) :-
     puntuar_letras(Letras, Idioma, O, F, C, 0, 1, PuntosTotales).
+
+% puntuar_letras(+Letras, +Idioma, +Orientacion, +F, +C, +Acum, +MultPalabra, -PuntosFinal)
+puntuar_letras([], _, _, _, _, Acum, MultPalabra, Total) :-
+    Total is Acum * MultPalabra.
+
+puntuar_letras([L|Ls], Idioma, horizontal, F, C, Acum, MPW, Total) :-
+    letra_valor(L, F, C, Idioma, ValLetra, MultPalabra),
+    NuevoAcum is Acum + ValLetra,
+    ( MultPalabra > 1 -> NuevoMPW is MPW * MultPalabra ; NuevoMPW = MPW ),
+    C1 is C + 1,
+    puntuar_letras(Ls, Idioma, horizontal, F, C1, NuevoAcum, NuevoMPW, Total).
+
+puntuar_letras([L|Ls], Idioma, vertical, F, C, Acum, MPW, Total) :-
+    letra_valor(L, F, C, Idioma, ValLetra, MultPalabra),
+    NuevoAcum is Acum + ValLetra,
+    ( MultPalabra > 1 -> NuevoMPW is MPW * MultPalabra ; NuevoMPW = MPW ),
+    F1 is F + 1,
+    puntuar_letras(Ls, Idioma, vertical, F1, C, NuevoAcum, NuevoMPW, Total).
+
+% letra_valor(+Letra, +Fila, +Columna, +Idioma, -ValorFinal, -MultPalabra)
+letra_valor(L, F, C, Idioma, ValorLetra, PMult) :-
+    downcase_atom(L, Lmin),
+    valor_letra(Lmin, Idioma, Base),
+    (   casilla(F, C, libre, _) ->
+        (   casilla_especial(F, C, letra, LMult) -> ValorLetra is Base * LMult ; ValorLetra = Base ),
+        (   casilla_especial(F, C, palabra, PMult) -> true ; PMult = 1 )
+    ;   ValorLetra = Base,
+        PMult = 1
+    ).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% FUNCIONES AUXILIARES
