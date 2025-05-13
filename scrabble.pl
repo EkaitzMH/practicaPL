@@ -556,13 +556,13 @@ formar_palabra(J, O, F, C, P) :-
     ->  true % El jugador tiene las letras necesarias para formar la palabra
     ;   format("Error: El jugador ~w no tiene las fichas necesarias para formar la palabra '~w'.~n", [J, P]), fail
     ),
+    sumar_puntos(J, Letras, O, F, C),
     colocar_palabra(Letras, O, F, C), % Coloca la palabra en el tablero
     format("La palabra '~w' ha sido colocada en el tablero.~n", [P]),
     actualizar_fichas_jugador(J, LetrasUsadas), % Solo elimina las letras realmente usadas
     %format("Las fichas del jugador ~w han sido actualizadas.~n", [J]),
     reponer_fichas(J), % Repone las fichas del jugador
   % format("Las fichas del jugador ~w han sido repuestas.~n", [J]),
-    sumar_puntos(J, Letras, O, F, C),
     format("Los puntos del jugador ~w han sido actualizados.~n", [J]),
     cambiar_turno, !.
 
