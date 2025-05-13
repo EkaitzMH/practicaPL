@@ -1,16 +1,14 @@
 % Configurar la codificación de entrada y salida como UTF-8
 :- set_prolog_flag(encoding, utf8).
 
-test_tildes :-
-    format("Prueba de caracteres: á, é, í, ó, ú, ñ, ü.~n").
 
 :- dynamic opcion/2.  % Es una estructura en la que se guarda los parametros de configuracion con su valor
-:- dynamic jugador/3.
-:- dynamic partida_activa/1.
-:- dynamic casilla/4.
-:- dynamic ficha_disponible/2.
+:- dynamic jugador/3. % Es una estructura en la que se guarda el nombre del jugador, su puntuacion y sus fichas
+:- dynamic partida_activa/1. %Guarda si una partida esta activa o no
+:- dynamic casilla/4. % Guarda por cada casilla su fila, columna, si esta ocupada o no y en caso de estar ocupada la letra
+:- dynamic ficha_disponible/2. % Guarda las letras disponibles y su cantidad
 :- dynamic historial/4.
-:- dynamic turno_actual/1.
+:- dynamic turno_actual/1. % Guarda el nombre del jugador al que le toca jugar
 :- dynamic ultimo_iniciador/1. % Para el modo alterno
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -24,12 +22,13 @@ opcion_valida(reparto_fichas, ['aleatorio', 'manual']).
 opcion_valida(modo_inicio, ['normal', 'alterno']).
 
 % ver_opcion(+Opcion)
-% Dado el nombre de una opcion(Idioma,Modo_juego,modo_reparto,modo_inicio), nos da su valor
+% Imprime pr consola el valor de Opcion
 ver_opcion(O) :-
     opcion(O, V),
     format("~w: ~w~n", [O, V]).
 
 % establecer_opcion(+Opcion, +Valor)
+% Establece Valor como valor de Opcion
 establecer_opcion(O, V) :-
     \+ partida_activa(_),
 
@@ -40,7 +39,8 @@ establecer_opcion(O, V) :-
     ;   format("Error: ~w no es un valor válido para la opción ~w.~n", [V, O]), fail
     ).
 
-% configurar_opciones/0: predicado auxiliar para la configuración automática de todas las opciones por consola.
+% configurar_opciones
+% Permite cofigurar automaticamente los 4 parametros configurables del juego
 configurar_opciones :-
     preguntar_opcion(idioma, "Seleccione el idioma (es/eus/en): "),
     preguntar_opcion(modo_juego, "Seleccione el modo de juego (jugadorVSjugador/jugadorVSmaquina): "),
@@ -48,6 +48,7 @@ configurar_opciones :-
     preguntar_opcion(modo_inicio, "Seleccione el modo de inicio (normal/alterno): ").
 
 % preguntar_opcion(+Opcion, +Mensaje)
+% Imprime Mensaje y espera la entrada del usuario para establecer el valor de Opcion
 preguntar_opcion(Opcion, Mensaje) :-
     format(Mensaje),
     flush_output,
@@ -76,7 +77,8 @@ init_config :-
 %% DICCIONARIO SEGÚN IDIOMA
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% cargar_diccionario/0 - Carga todas las palabras del idioma seleccionado
+% cargar_diccionario
+% Carga todas las palabras del idioma seleccionado
 cargar_diccionario :-
     opcion(idioma, Idioma),
     ruta_diccionario(Idioma, ArchivoRelativo),
@@ -101,13 +103,13 @@ ruta_diccionario(es, 'palabras_castellano_sin_tildes.txt').
 ruta_diccionario(eus,    'palabras_euskera.txt').
 ruta_diccionario(en,     'palabras_ingles.txt').
 
-% palabra_valida(+Palabra) dinámico cargado desde fichero
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% INICIO Y GESTIÓN DE PARTIDAS
+%% INICIO Y FINAL DE PARTIDAS Y GESTION DE TURNOS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% iniciar_partida/0: Llama automáticamente a iniciar_partida/1 o iniciar_partida/2 según el modo de juego
+% iniciar_partida
+% Inicia la partida de un jugador o de dos jugadores segun la configuracion escogida, si no hay ninguna configuracion escogida
+% se lanza un error y se pide ejecutar el predicado configurar_opciones
 iniciar_partida :-
     opcion(modo_juego, 'jugadorVSjugador'),
     !,
@@ -141,7 +143,8 @@ iniciar_partida :-
 iniciar_partida :-
     format("Error: No se ha configurado el modo de juego correctamente. Ejecute el predicado configurar_opciones ~n"), fail.
 
-% iniciar_partida/1: Inicia una partida con un jugador contra la máquina
+% iniciar_partida(Jugador)
+% Inicia una partida de jugador Vs maquina
 iniciar_partida(Jugador) :-
     nonvar(Jugador),
     opcion(modo_juego, 'jugadorVSmaquina'), % Verifica que el modo de juego sea correcto
@@ -156,23 +159,9 @@ iniciar_partida(Jugador) :-
     inicializar_turno([Jugador, maquina]),
     format("Partida iniciada: ~w vs Máquina.~n", [Jugador]), !.
 
-iniciar_partida(Jugador) :-
-    var(Jugador), % Si el parámetro no está instanciado, muestra un error
-    format("Error: El nombre del jugador debe estar instanciado.~n"), fail.
 
-iniciar_partida(_) :-
-    \+ opcion(modo_juego, 'jugadorVSmaquina'), % Falla si el modo no es correcto
-    format("Error: El modo de juego configurado no es 'jugadorVSmaquina'.~n"), fail.
-
-% iniciar_partida/2: Inicia una partida con dos jugadores
-iniciar_partida(J1, J2) :-
-    ( var(J1); var(J2) ), !,
-    format("Error: Los nombres de los jugadores deben estar instanciados.~n"), fail.
-
-iniciar_partida(_, _) :-
-    \+ opcion(modo_juego, jugadorVSjugador), !, 
-    format("Error: El modo de juego configurado no es 'jugadorVSjugador'.~n"), fail.
-
+% iniciar_partida(J1,J2) 
+%Inicia una partida con dos jugadores, fallara en caso de que los dos jugadores se llamen igual
 iniciar_partida(J1, J2) :-
     J1 == J2, !, 
     format("Error: Los jugadores no pueden tener el mismo nombre.~n"), fail.
@@ -193,6 +182,8 @@ iniciar_partida(J1, J2) :-
     !.
 
 % abandonar_partida(+Jugador)
+% En caso de que haya una partida activa y el jugador Jugador este participando en ella, se retirara de la partida
+% y se le otorgara la victoria al otro jugador. Despues se reiniciara el juego
 abandonar_partida(_) :-
     \+ partida_activa(_),
     format("Error: no hay ninguna partida activa.~n"),
@@ -224,7 +215,8 @@ abandonar_partida(J) :-
     format("Error: el jugador ~w no participa en la partida actual.~n", [J]),
     !, fail.
 
-% reset_juego/0: Limpia el estado del juego, pero mantiene las opciones de configuración
+% reset_juego
+% Termina la partida actual pero guarda las opciones de configuracion
 reset_juego :-
     retractall(partida_activa(_)),
     retractall(jugador(_, _, _)),
@@ -253,7 +245,8 @@ inicializar_turno([J1, J2]) :-
         assert(ultimo_iniciador(J1))
     ).
 
-% cambiar_turno/0: Alterna el turno entre los jugadores
+% cambiar_turno 
+% Cambia el turno al siguiente jugador
 cambiar_turno :-
     turno_actual(JugadorActual),
     partida_activa(jugadores(Jugador1, Jugador2)),
@@ -282,12 +275,14 @@ pasar_turno(J) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % inicializar_jugadores(+ListaJugadores)
+% Inicializa los jugadores con su nombre, 0 puntos y una lista vacia donde se guardaran las fichas
 inicializar_jugadores([]).
 inicializar_jugadores([J|R]) :-
     assert(jugador(J, 0, [])),
     inicializar_jugadores(R).
 
 % repartir_fichas(+ListaJugadores)
+% Reparte 7 fichas a cada jugador de la lista ListaJugadores
 repartir_fichas([]).
 repartir_fichas([J|R]) :-
     jugador(J, P, _),
@@ -297,6 +292,7 @@ repartir_fichas([J|R]) :-
     repartir_fichas(R).
 
 % mostrar_fichas(+Jugador)
+% Muestra las fichas del jugador Jugador
 mostrar_fichas(J) :-
     jugador(J, _, Fichas),
     format("Fichas de ~w: ~w~n", [J, Fichas]).
@@ -331,13 +327,15 @@ agregar_fichas([(Letra, Cant) | Resto]) :-
     assert(ficha_disponible(Letra, Cant)), % Añade la letra con su cantidad directamente
     agregar_fichas(Resto).
 
-% ver_bolsa/0 - Muestra cuántas fichas quedan en la bolsa, agrupadas por letra
+% ver_bolsa
+% Muetsra una lista de letras disponibles en la bolsa y su cantidad
 ver_bolsa :-
     findall(L-C, ficha_disponible(L, C), Fichas),
     imprimir_bolsa(Fichas).
 
 /*
 % agrupar_fichas(+ListaLetras, -ListaLetra-Cantidad)
+% agrupa los elementos de ListaLetras en la lista de pares Letra-Cantidad
 agrupar_fichas([], []).
 agrupar_fichas([H|T], [H-N|R]) :-
     same_letter_count(H, [H|T], N, Resto),
@@ -360,14 +358,81 @@ imprimir_bolsa([L-C|R]) :-
 %% TABLERO
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% inicializar_tablero/0
+%Casilla_Especial(+Fila, +Columna, ?Tipo, ?Multiplicador)
+% Tiene exito si la casilla correspondiente a Fila y Columna es una casilla que multiplica Tipo (letra o palabra) por Multiplicador
+casilla_especial(1, 1, palabra, 3).
+casilla_especial(1, 8, palabra, 3).
+casilla_especial(1, 15, palabra, 3).
+casilla_especial(8, 8, palabra, 2).
+casilla_especial(8, 15, palabra, 3).
+casilla_especial(8, 1, palabra, 3).
+casilla_especial(15, 1, palabra, 3).
+casilla_especial(15, 8, palabra, 3).
+casilla_especial(15, 15, palabra, 3).
+casilla_especial(1, 4, letra, 2).
+casilla_especial(1, 12, letra, 2).
+casilla_especial(3, 7, letra, 2).
+casilla_especial(3, 9, letra, 2).
+casilla_especial(4, 1, letra, 2).
+casilla_especial(4, 8, letra, 2).
+casilla_especial(4, 15, letra, 2).
+casilla_especial(7, 3, letra, 2).
+casilla_especial(7, 7, letra, 2).
+casilla_especial(7, 9, letra, 2).
+casilla_especial(7, 13, letra, 2).
+casilla_especial(8, 4, letra, 2).
+casilla_especial(8, 12, letra, 2).
+casilla_especial(9, 3, letra, 2).
+casilla_especial(9, 7, letra, 2).
+casilla_especial(9, 9, letra, 2).
+casilla_especial(9, 13, letra, 2).
+casilla_especial(12, 1, letra, 2).
+casilla_especial(12, 8, letra, 2).
+casilla_especial(12, 15, letra, 2).
+casilla_especial(13, 7, letra, 2).
+casilla_especial(13, 9, letra, 2).
+casilla_especial(12, 4, letra, 2).
+casilla_especial(12, 12, letra, 2).
+casilla_especial(2, 2, palabra, 2).
+casilla_especial(2, 14, palabra, 2).
+casilla_especial(14, 2, palabra, 2).
+casilla_especial(14, 14, palabra, 2).
+casilla_especial(3, 3, palabra, 2).
+casilla_especial(3, 13, palabra, 2).
+casilla_especial(13, 3, palabra, 2).
+casilla_especial(13, 13, palabra, 2).
+casilla_especial(4, 4, palabra, 2).
+casilla_especial(4, 12, palabra, 2).
+casilla_especial(12, 4, palabra, 2).
+casilla_especial(12, 12, palabra, 2).
+casilla_especial(5, 5, palabra, 2).
+casilla_especial(5, 11, palabra, 2).
+casilla_especial(11, 5, palabra, 2).
+casilla_especial(11, 11, palabra, 2).
+casilla_especial(2, 6, letra, 3).
+casilla_especial(2, 10, letra, 3).
+casilla_especial(14, 6, letra, 3).
+casilla_especial(14, 10, letra, 3).
+casilla_especial(6, 2, letra, 3).
+casilla_especial(6, 6, letra, 3).
+casilla_especial(6, 10, letra, 3).
+casilla_especial(6, 14, letra, 3).
+casilla_especial(10, 2, letra, 3).
+casilla_especial(10, 6, letra, 3).
+casilla_especial(10, 10, letra, 3).
+casilla_especial(10, 14, letra, 3).
+
+% inicializar_tablero
+% Inicializa el tablero
 inicializar_tablero :-
     retractall(casilla(_,_,_,_)),
     forall(between(1,15,F),
         forall(between(1,15,C),
             assert(casilla(F, C, libre, none)))).
 
-% ver_tablero/0
+% ver_tablero
+% Muestra el tablero por consola, mostrando las letras si la casilla esta ocupada 
+% y los multiplicadores de las casillas especiales si no esta ocupada la casilla
 ver_tablero :-
     write('    '), % Espacio inicial para los números de columna
     forall(between(1, 15, C), (format("~|~`0t~d~2+", [C]), write('  '))), nl, % Encabezado de columnas
@@ -376,7 +441,17 @@ ver_tablero :-
     forall(between(1, 15, F), (
         format("~|~`0t~d~2+ |", [F]), % Número de fila con separación
         forall(between(1, 15, C), (
-            (casilla(F, C, libre, _) -> write('   '); casilla(F, C, ocupada, Letra), format(" ~w ", [Letra])),
+            (casilla(F, C, ocupada, Letra) ->
+    format(" ~w ", [Letra])
+;
+    (casilla_especial(F, C, letra, 2) -> write('L*2');
+     casilla_especial(F, C, letra, 3) -> write('L*3');
+     casilla_especial(F, C, palabra, 2) -> write('P*2');
+     casilla_especial(F, C, palabra, 3) -> write('P*3');
+     write('   ')
+    )
+),
+            
             write('|') % Separador vertical
         )),
         nl,
@@ -388,6 +463,7 @@ ver_tablero :-
 %% VALOR PALABRA
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % valor_letra(+Letra, +Idioma, -Puntos)
+% tiene exito si Puntos es el valor de la letra Letra en el idioma Idioma
 valor_letra(a, es, 1) :- !.
 valor_letra(e, es, 1) :- !.
 valor_letra(o, es, 1) :- !.
@@ -444,6 +520,7 @@ valor_letra(q, eus, 5).
 valor_letra(y, eus, 5).
 valor_letra(_, eus, 0).
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% FORMAR PALABRA
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -454,45 +531,50 @@ puntuaje_palabra(Letras, Idioma, Puntos) :-
     sum_list(Valores, Puntos).
 
 % formar_palabra(+Jugador, +Orientacion, +Fila, +Columna, +Palabra)
+% Tiene exito si el jugador Jugador puede formar la palabra Palabra empezando en la posicion Fila,Columna y en la orientacion Orientacion
+% Si puede hacerlo se colocara la plabra en el tablero y se le sumaran los puntos al jugador Jugador
+% En caso de que la plabra no exista, el jugador no tenga las fichas necesarias,no sea su turno, no este en la partida,
+% la palabra no quepa en el tablero o no haya una partida activa se lanzara un error anunciando al jugador el motivo del error
 formar_palabra(J, O, F, C, P) :-
-    format("Intentando formar la palabra '~w' por el jugador ~w en orientación ~w desde la posición (~w, ~w).~n", [P, J, O, F, C]),
+    %format("Intentando formar la palabra '~w' por el jugador ~w en orientación ~w desde la posición (~w, ~w).~n", [P, J, O, F, C]),
     (   partida_activa(_)
-    ->  format("Partida activa verificada.~n")
+    ->  true % La partida esta activa
     ;   format("Error: No hay una partida activa.~n"), fail
     ),
     (   turno_actual(J)
-    ->  format("Es el turno del jugador ~w.~n", [J])
+    ->  true % Es el turno del jugador
     ;   format("Error: No es el turno del jugador ~w.~n", [J]), fail
     ),
     (   jugador(J, _, Fichas)
-    ->  format("Fichas del jugador ~w: ~w.~n", [J, Fichas])
+    ->  true % El jugador está registrado
     ;   format("Error: El jugador ~w no está registrado.~n", [J]), fail
     ),
     string_upper(P, Mayus),
     (   palabra_valida(Mayus)
-    ->  format("La palabra '~w' es válida en el diccionario.~n", [P])
+    ->  true % La palabra esta en el diccionario
     ;   format("Error: La palabra '~w' no está en el diccionario.~n", [P]), fail
     ),
     atom_chars(P, Letras),
     (   puede_colocar(P, O, F, C)
-    ->  format("La palabra '~w' puede colocarse en el tablero.~n", [P])
+    ->  true % La palabra cabe en el tablero
     ;   format("Error: La palabra '~w' no puede colocarse en el tablero.~n", [P]), fail
     ),
-    letras_en_tablero(Letras, O, F, C, LetrasEnTablero),
-    format("Letras ya colocadas en el tablero: ~w.~n", [LetrasEnTablero]),
+    letras_en_tablero(Letras, O, F, C, LetrasEnTablero), % Obtiene las letras que ya están en el tablero
+    %format("Letras ya colocadas en el tablero: ~w.~n", [LetrasEnTablero]),
     subtract(Letras, LetrasEnTablero, LetrasUsadas), % Calcula las letras que el jugador realmente usó
-    format("Letras realmente usadas por el jugador: ~w.~n", [LetrasUsadas]),
+    %format("Letras realmente usadas por el jugador: ~w.~n", [LetrasUsadas]),
     append(Fichas, LetrasEnTablero, FichasCombinadas),
-    format("Fichas combinadas (jugador + tablero): ~w.~n", [FichasCombinadas]),
+    %format("Fichas combinadas (jugador + tablero): ~w.~n", [FichasCombinadas]),
     (   contiene_fichas(FichasCombinadas, Letras)
-    ->  format("El jugador ~w tiene las fichas necesarias para formar la palabra '~w'.~n", [J, P])
+    ->  true % El jugador tiene las letras necesarias para formar la palabra
     ;   format("Error: El jugador ~w no tiene las fichas necesarias para formar la palabra '~w'.~n", [J, P]), fail
     ),
-    colocar_palabra(Letras, O, F, C),
+    sumar_puntos(J, Letras, O,F,C), % Suma los puntos al jugador
+    colocar_palabra(Letras, O, F, C), % Coloca la palabra en el tablero
     format("La palabra '~w' ha sido colocada en el tablero.~n", [P]),
     actualizar_fichas_jugador(J, LetrasUsadas), % Solo elimina las letras realmente usadas
-    format("Las fichas del jugador ~w han sido actualizadas.~n", [J]),
-    reponer_fichas(J),
+    %format("Las fichas del jugador ~w han sido actualizadas.~n", [J]),
+    reponer_fichas(J), % Repone las fichas del jugador
   % format("Las fichas del jugador ~w han sido repuestas.~n", [J]),
     sumar_puntos(J, Letras),
     format("Los puntos del jugador ~w han sido actualizados.~n", [J]),
@@ -504,6 +586,7 @@ formar_palabra(J, _, _, _, _) :-
     fail.*/
 
 % letras_en_tablero(+Letras, +Orientacion, +Fila, +Columna, -LetrasEnTablero)
+% Tiene exito si LetrasEnTablero es la lista de letras que ya están ocupando el tablero en la posición Fila,Columna
 letras_en_tablero([], _, _, _, []). % Caso base: no hay más letras que procesar.
 letras_en_tablero([L|Ls], horizontal, F, C, [L|Resto]) :-
     casilla(F, C, ocupada, L), % La casilla está ocupada y la letra coincide.
@@ -522,28 +605,9 @@ letras_en_tablero([L|Ls], vertical, F, C, Resto) :-
     F1 is F + 1, % Avanza a la siguiente fila.
     letras_en_tablero(Ls, vertical, F1, C, Resto).
 
-/*
-% VERSION ORIGINAL puede_colocar(+Palabra, +Orientacion, +Fila, +Columna)
-puede_colocar(P, horizontal, F, C) :-
-    atom_length(P, L),
-    C2 is C + L - 1,
-    C2 =< 15,
-    L1 is L -1,
-    forall(between(0, L1, I), (
-        CPos is C + I,
-        casilla(F, CPos, libre, _) ; casilla(F, CPos, ocupada, _)
-    )).
-puede_colocar(P, vertical, F, C) :-
-    atom_length(P, L),
-    F2 is F + L - 1,
-    F2 =< 15,
-    L1 is L -1,
-    forall(between(0, L1, I), (
-        FPos is F + I,
-        casilla(FPos, C, libre, _) ; casilla(FPos, C, ocupada, _)
-    )).*/
-
 % puede_colocar(+Palabra, +Orientacion, +Fila, +Columna)
+% Tiene exito si la palabra Palabra puede colocarse en el tablero en la orientacion Orientacion
+% comenzando en la posicion Fila,Columna
 puede_colocar(P, horizontal, F, C) :-
     atom_chars(P, Letras), % Convierte la palabra en una lista de letras
     atom_length(P, L),
@@ -573,6 +637,7 @@ puede_colocar(P, vertical, F, C) :-
     )).
 
 % colocar_palabra(+Letras, +O, +F, +C)
+% Coloca la palabra que forman las letras de la lista Letras en el tablero en la orientacion O, comenzando en la posicion Fila,Columna
 colocar_palabra([], _, _, _).
 colocar_palabra([L|Ls], horizontal, F, C) :-
     colocar_letra(F, C, L),
@@ -585,6 +650,7 @@ colocar_palabra([L|Ls], vertical, F, C) :-
     colocar_palabra(Ls, vertical, F1, C).
 
 % colocar_letra(+Fila, +Columna, +Letra)
+% Funcion auxiliar que coloca la letra Letra en la posicion Fila,Columna
 colocar_letra(F, C, L) :-
     (   casilla(F, C, libre, none) % Si la casilla está libre
     ->  retract(casilla(F, C, libre, none)), % Elimina la casilla libre
@@ -596,15 +662,18 @@ colocar_letra(F, C, L) :-
     ).
 
 % contiene_fichas(+FichasJugador, +LetrasPalabra)
+% Tiene exito si las letras de la palabra LetrasPalabra están contenidas en las fichas del jugador FichasJugador
 contiene_fichas(FJ, Ls) :-
     msort(FJ, S1), msort(Ls, S2), sublista(S2, S1).
 
-% sublista(S, L): S está contenida en L
+% sublista(S, L)
+% Tiene exito si S es una sublista de L
 sublista([], _).
 sublista([X|Xs], [X|Ys]) :- sublista(Xs, Ys).
 sublista(Xs, [_|Ys]) :- sublista(Xs, Ys).
 
 % actualizar_fichas_jugador(+Jugador, +LetrasUsadas)
+% Elimina las las letras de la lista LetrasUsadas de las fichas del jugador Jugador 
 actualizar_fichas_jugador(J, Letras) :-
     jugador(J, P, F),
     format("Fichas actuales del jugador ~w: ~w.~n", [J, F]),
@@ -619,25 +688,37 @@ actualizar_fichas_jugador(J, Letras) :-
     ).
 
 % remove_letras(+FichasJugador, +LetrasUsadas, -Restantes)
+% Elimina las letras de la lista LetrasUsadas de las fichas del jugador FichasJugador
 remove_letras(F, [], F).
 remove_letras(F, [L|Ls], R) :-
     select(L, F, F1),
     remove_letras(F1, Ls, R).
 
 
-% sumar_puntos(+Jugador, +Letras)
-sumar_puntos(J, Letras) :-
+% sumar_puntos(+Jugador, +Letras, +O, +F, +C)
+% Suma al jugador Jugador los puntos que da la palabra que forma la lista Letras comenzando en la posicion Fila,Columna
+% en la orientacion O
+sumar_puntos(J, Letras, O, F, C) :-
     opcion(idioma, Idioma),
-    puntuaje_palabra(Letras, Idioma, Puntos),
+    puntuaje_palabra(Letras, Idioma, O, F, C, Puntos),
     jugador(J, Anterior, Fichas),
     retract(jugador(J, Anterior, Fichas)),
     Nuevo is Anterior + Puntos,
     assert(jugador(J, Nuevo, Fichas)).
+
+% puntuaje_palabra(+Letras, +Idioma, +Orientacion, +Fila, +Columna, -Puntos)
+% Tiene exito si Puntos es el puntuaje que da la palabra que forma la lista Letras en el idioma Idioma
+% que se encuentra en la orientacion Orientacion, empezando la posicion Fila ,Columna
+puntuaje_palabra(Letras, Idioma, O, F, C, PuntosTotales) :-
+    puntuar_letras(Letras, Idioma, O, F, C, 0, 1, PuntosTotales).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% FUNCIONES AUXILIARES
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % reponer_fichas(+Jugador)
+% Repone las fichas que le faltan al jugador Jugador hasta llegar a 7
+% Si no hay suficientes fichas en la bolsa, se reponen las que haya disponibles
 reponer_fichas(J) :-
     jugador(J, P, FichasAct),
     length(FichasAct, N),
@@ -654,6 +735,7 @@ reponer_fichas(J) :-
     % format("Fichas finales del jugador ~w: ~w.~n", [J, Final]).
 
 % total_fichas_disponibles(-N)
+% Tiene exito si N es el total de fichas disponibles en la bolsa   
 total_fichas_disponibles(N) :-
     findall(Cantidad, ficha_disponible(_, Cantidad), Cantidades),
     sum_list(Cantidades, N).
@@ -690,6 +772,7 @@ generar_fichas(N, [L|R]) :-
     generar_fichas(N1, R).*/
 /*
 % letras_disponibles(-Lista)
+% Inicializa la bolsa solo si esta vacia
 letras_disponibles(['A','B','C','D','E','F','G','H','I','J','K','L','M',
                     'N','Ñ','O','P','Q','R','S','T','U','V','W','X','Y','Z','_']).*/
 
@@ -700,4 +783,11 @@ letras_disponibles(['A','B','C','D','E','F','G','H','I','J','K','L','M',
 %% ver_resumen/0
 %% ver_historial/1
 %% ver_ranking/0
+%% pasar_turno(J)
+% finalizar_partida -- Cuando se terminan las fichas y se le otorga la victoria al jugador con más puntos
+%% Comentar inicializar turno, no entiendo muy bien lo que hace
+%% Comentar agrupar 
+%% Valor letra en ingles, y asehurarse de que los valores son los correctos en euskera y castellano
+% Revisar los comentarios de FUNCIONES AUXILIARES No creo que esten bien
+%% Implementar reparto de fichas(manual y lo otro) y inicio de partida(alterno y lo otro)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
