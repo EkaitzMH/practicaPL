@@ -9,7 +9,7 @@
 :- dynamic historial/4.
 :- dynamic turno_actual/1. % Guarda el nombre del jugador al que le toca jugar
 :- dynamic ultimo_iniciador/1. % Para el modo alterno
-:- dynamic jugada/4. % jugada(Jugador, Palabra, Puntos, FichasRestantes)
+:- dynamic jugada/5. % jugada(Jugador, Palabra, Puntos, Casillas, FichasRestantes)
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -225,6 +225,7 @@ reset_juego :-
     retractall(ficha_disponible(_, _)),
     retractall(historial(_, _, _, _)),
     retractall(turno_actual(_)),
+    retractall(jugada(_, _, _, _, _)),
     format("El juego ha sido reiniciado. Puede configurar una nueva partida.~n").
 
 % inicializar_turno(+Jugadores)
@@ -546,7 +547,7 @@ formar_palabra(J, O, F, C, P) :-
           -> true
           ; format("En el primer turno, la palabra debe pasar por la casilla central (8,8)."), fail
        )
-    ;  true
+    ;  validar_enganche_o_extension(Letras, O, F, C)
     ),
     letras_en_tablero(Letras, O, F, C, LetrasEnTablero), % Obtiene las letras que ya están en el tablero
     %format("Letras ya colocadas en el tablero: ~w.~n", [LetrasEnTablero]),
@@ -569,14 +570,74 @@ formar_palabra(J, O, F, C, P) :-
     (   opcion(idioma, Idioma),
         atom_chars(P, Letras),
         puntuaje_palabra(Letras, Idioma, O, F, C, Puntos),
+        casillas_por_donde_pasa(Letras, O, F, C, Casillas),
         atom_string(P, PalabraStr),
         ground([J, PalabraStr, Puntos, FichasRestantes]),
-        assertz(jugada(J, PalabraStr, Puntos, FichasRestantes))
+        assertz(jugada(J, PalabraStr, Puntos, Casillas, FichasRestantes))
     ->  true ;   
     format("No se pudo guardar la jugada por falta de datos instanciados.~n")
     ),
 
     cambiar_turno, !.
+
+validar_enganche_o_extension(Letras, O, F, C) :-
+    format("[DEBUG] Validando enganche o extensión para ~w en (~w,~w) orientacion ~w~n", [Letras, F, C, O]),
+    casillas_por_donde_pasa(Letras, O, F, C, Casillas),
+    format("[DEBUG] Casillas por donde pasa: ~w~n", [Casillas]),
+    % Debe tocar al menos una letra ya existente
+    (   intersecta_con_casillas_previas(Casillas)
+    ->  format("[DEBUG] La palabra toca al menos una casilla previa.~n")
+    ;   format("Error: La palabra debe tocar al menos una ya existente.~n"), fail
+    ),
+    % Si está extendiendo una palabra, debe usarla completa
+    (   esta_extendiendo_palabra(Casillas, O, PalabraOriginal, CasillasOriginal)
+    ->  format("[DEBUG] Está extendiendo palabra: ~w en casillas ~w~n", [PalabraOriginal, CasillasOriginal]),
+        length(CasillasOriginal, LenOriginal),
+        length(PalabraOriginal, LenOriginal),
+        format("[DEBUG] Longitud de palabra original: ~w, longitud de casillas original: ~w~n", [LenOriginal, LenOriginal])
+    ;   format("[DEBUG] No está extendiendo ninguna palabra existente.~n")
+    ).
+
+intersecta_con_casillas_previas(Casillas) :-
+    format("[DEBUG] Buscando intersección con jugadas previas...~n", []),
+    jugada(_, _, _, CasillasPrevias, _),
+    format("[DEBUG] Casillas previas de jugada: ~w~n", [CasillasPrevias]),
+    member(Pos, Casillas),
+    member(Pos, CasillasPrevias),
+    format("[DEBUG] ¡Intersección encontrada en la posición ~w!~n", [Pos]),
+    !.
+
+esta_extendiendo_palabra(Casillas, Orientacion, LetrasPalabra, CasillasPalabra) :-
+    format("[DEBUG] Comprobando si está extendiendo palabra en la misma línea y orientación...~n", []),
+    jugada(_, Palabra, _, CasillasPalabra, _),
+    format("[DEBUG] Palabra previa: ~w, Casillas previas: ~w~n", [Palabra, CasillasPalabra]),
+    misma_linea_y_orientacion(CasillasPalabra, Casillas, Orientacion),
+    sublista_consecutiva(CasillasPalabra, Casillas),
+    atom_chars(Palabra, LetrasPalabra),
+    format("[DEBUG] ¡Extensión válida! Palabra: ~w~n", [Palabra]).
+
+misma_linea_y_orientacion(Casillas1, Casillas2, horizontal) :-
+    format("[DEBUG] Comprobando misma línea horizontal...~n", []),
+    forall(member((F,_), Casillas1), member((F,_), Casillas2)).
+misma_linea_y_orientacion(Casillas1, Casillas2, vertical) :-
+    format("[DEBUG] Comprobando misma línea vertical...~n", []),
+    forall(member((_,C), Casillas1), member((_,C), Casillas2)).
+
+sublista_consecutiva(Sub, Lista) :-
+    append(_, Resto, Lista),
+    append(Sub, _, Resto).
+
+% casillas_por_donde_pasa(+Palabra, +Orientacion, +FilaInicial, +ColInicial, -Casillas)
+% Devuelve una lista de coordenadas (F, C) por donde pasa la palabra.
+casillas_por_donde_pasa([], _, _, _, []) :- !.
+casillas_por_donde_pasa([_|Letras], horizontal, F, C, [(F, C)|Resto]) :-
+    format("[DEBUG] Añadiendo casilla horizontal: (~w,~w)~n", [F, C]),
+    C1 is C + 1,
+    casillas_por_donde_pasa(Letras, horizontal, F, C1, Resto).
+casillas_por_donde_pasa([_|Letras], vertical, F, C, [(F, C)|Resto]) :-
+    format("[DEBUG] Añadiendo casilla vertical: (~w,~w)~n", [F, C]),
+    F1 is F + 1,
+    casillas_por_donde_pasa(Letras, vertical, F1, C, Resto).
 
 % letras_en_tablero(+Letras, +Orientacion, +Fila, +Columna, -LetrasEnTablero)
 % Tiene exito si LetrasEnTablero es la lista de letras que ya están ocupando el tablero en la posición Fila,Columna
