@@ -9,6 +9,8 @@
 :- dynamic historial/4.
 :- dynamic turno_actual/1. % Guarda el nombre del jugador al que le toca jugar
 :- dynamic ultimo_iniciador/1. % Para el modo alterno
+:- dynamic jugada/4. % jugada(Jugador, Palabra, Puntos, FichasRestantes)
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% CONFIGURACIÓN
@@ -560,10 +562,20 @@ formar_palabra(J, O, F, C, P) :-
     colocar_palabra(Letras, O, F, C), % Coloca la palabra en el tablero
     format("La palabra '~w' ha sido colocada en el tablero.~n", [P]),
     actualizar_fichas_jugador(J, LetrasUsadas), % Solo elimina las letras realmente usadas
+    jugador(J, _, FichasRestantes),
     %format("Las fichas del jugador ~w han sido actualizadas.~n", [J]),
     reponer_fichas(J), % Repone las fichas del jugador
-  % format("Las fichas del jugador ~w han sido repuestas.~n", [J]),
-    format("Los puntos del jugador ~w han sido actualizados.~n", [J]),
+  % format("Las fichas del jugador ~w han sido repuestas.~n", [J]),,
+    (   opcion(idioma, Idioma),
+        atom_chars(P, Letras),
+        puntuaje_palabra(Letras, Idioma, O, F, C, Puntos),
+        atom_string(P, PalabraStr),
+        ground([J, PalabraStr, Puntos, FichasRestantes]),
+        assertz(jugada(J, PalabraStr, Puntos, FichasRestantes))
+    ->  true ;   
+    format("No se pudo guardar la jugada por falta de datos instanciados.~n")
+    ).
+
     cambiar_turno, !.
 
 % letras_en_tablero(+Letras, +Orientacion, +Fila, +Columna, -LetrasEnTablero)
@@ -792,19 +804,38 @@ reducir_ficha(L) :-
     ficha_disponible(L, 0),
     retract(ficha_disponible(L, 0)).
 
-% letras_disponibles/1 inicializa la bolsa solo si está vacía
-/*generar_fichas(0, []).
-generar_fichas(N, [L|R]) :-
-    N > 0,
-    letras_disponibles(Letras),
-    random_member(L, Letras),
-    N1 is N - 1,
-    generar_fichas(N1, R).*/
-/*
-% letras_disponibles(-Lista)
-% Inicializa la bolsa solo si esta vacia
-letras_disponibles(['A','B','C','D','E','F','G','H','I','J','K','L','M',
-                    'N','Ñ','O','P','Q','R','S','T','U','V','W','X','Y','Z','_']).*/
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% ESTADISTICAS Y RANKINGS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+mostrar_puntuacion :-
+    partida_activa(jugadores(J1, J2)), !,
+    jugador(J1, Puntos1, _),
+    jugador(J2, Puntos2, _),
+    format("Puntuacion actual:~n"),
+    format(" - ~w: ~d puntos~n", [J1, Puntos1]),
+    format(" - ~w: ~d puntos~n", [J2, Puntos2]).
+mostrar_puntuacion :-
+    write('Error: no hay una partida iniciada.'), nl, fail.
+
+
+
+ver_resumen :-
+    partida_activa(jugadores(J1, J2)), !,
+    format("=== RESUMEN DE LA PARTIDA ===~n~n"),
+    
+    % Configuración
+    format("Configuración:~n"),
+    ( opcion(idioma, Idioma) -> format(" - Idioma: ~w~n", [Idioma]) ; true ),
+    ( opcion(modo, Modo) -> format(" - Modo de juego: ~w~n", [Modo]) ; true ),
+    format(" - Jugadores: ~w y ~w~n~n", [J1, J2]),
+
+    % Historial
+    format("Historial de jugadas:~n"),
+    forall(jugada(J, P, Pts, Fichas),
+           (format(" - ~w jugó '~w' (+~d pts), fichas restantes: ~w~n", [J, P, Pts, Fichas]))).
+ver_resumen :-
+    write('Error: no hay una partida iniciada.'), nl, fail.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
