@@ -574,7 +574,7 @@ formar_palabra(J, O, F, C, P) :-
         assertz(jugada(J, PalabraStr, Puntos, FichasRestantes))
     ->  true ;   
     format("No se pudo guardar la jugada por falta de datos instanciados.~n")
-    ).
+    ),
 
     cambiar_turno, !.
 
@@ -840,8 +840,6 @@ ver_resumen :-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% A COMPLETAR POSTERIORMENTE:
-%% mostrar_puntuación/0
-%% ver_resumen/0
 %% ver_historial/1
 %% ver_ranking/0
 %% pasar_turno(J)
