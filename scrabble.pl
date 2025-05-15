@@ -6,20 +6,21 @@
 :- dynamic partida_activa/1. %Guarda si una partida esta activa o no
 :- dynamic casilla/4. % Guarda por cada casilla su fila, columna, si esta ocupada o no y en caso de estar ocupada la letra
 :- dynamic ficha_disponible/2. % Guarda las letras disponibles y su cantidad
-:- dynamic historial/4.
+:- dynamic historial/4. % Guarda el historial de jugadas, con el jugador, la palabra, la puntuacion y las casillas ocupadas
 :- dynamic turno_actual/1. % Guarda el nombre del jugador al que le toca jugar
 :- dynamic ultimo_iniciador/1. % Para el modo alterno
 :- dynamic jugada/5. % jugada(Jugador, Palabra, Puntos, Casillas, FichasRestantes)
-:- dynamic turnos_sin_jugar/1. % Guarda el numero seguido de turnos sin jugar
+:- dynamic turnos_sin_jugar/1. % Guarda el numero de turnos sin jugar seguidos
 
 
-turnos_sin_jugar(0). 
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% CONFIGURACIÓN
+%% Predicados de configuración
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % opcion_valida(+Opcion, -ValoresPosibles)
+% ValoresPosibles es una lista que tiene los valores posibles para la opcion Opcion
 opcion_valida(idioma, ['es', 'eus', 'en']).
 opcion_valida(modo_juego, ['jugadorVSjugador', 'jugadorVSmaquina']).
 opcion_valida(reparto_fichas, ['aleatorio', 'manual']).
@@ -32,7 +33,7 @@ ver_opcion(O) :-
     format("~w: ~w~n", [O, V]).
 
 % establecer_opcion(+Opcion, +Valor)
-% Establece Valor como valor de Opcion
+% Establece Valor como valor de Opcion, si no es una opcion valida, falla y lanza un mensaje
 establecer_opcion(O, V) :-
     \+ partida_activa(_),
 
@@ -44,7 +45,7 @@ establecer_opcion(O, V) :-
     ).
 
 % configurar_opciones
-% Permite cofigurar automaticamente los 4 parametros configurables del juego
+% Cofigurar automaticamente los 4 parametros configurables del juego
 configurar_opciones :-
     preguntar_opcion(idioma, "Seleccione el idioma (es/eus/en): "),
     preguntar_opcion(modo_juego, "Seleccione el modo de juego (jugadorVSjugador/jugadorVSmaquina): "),
@@ -52,6 +53,7 @@ configurar_opciones :-
     preguntar_opcion(modo_inicio, "Seleccione el modo de inicio (normal/alterno): ").
 
 % preguntar_opcion(+Opcion, +Mensaje)
+% Predicado Auxiliar para configurar_opciones
 % Imprime Mensaje y espera la entrada del usuario para establecer el valor de Opcion
 preguntar_opcion(Opcion, Mensaje) :-
     format(Mensaje),
@@ -67,6 +69,7 @@ preguntar_opcion(Opcion, Mensaje) :-
 % valores por defecto
 :- dynamic opcion_inicializada/0.
 :- initialization(init_config).
+:- turnos_sin_jugar(0). 
 
 init_config :-
     opcion_inicializada, !.
@@ -78,11 +81,12 @@ init_config :-
     assert(opcion_inicializada).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% DICCIONARIO SEGÚN IDIOMA
+%% Predicado para cargar el diccionario segun el idioma
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % cargar_diccionario
-% Carga todas las palabras del idioma seleccionado
+% Carga todas las palabras del idioma seleccionado 
+% NOTA: el diccionario se encuentra en la carpeta del proyecto
 cargar_diccionario :-
     opcion(idioma, Idioma),
     ruta_diccionario(Idioma, ArchivoRelativo),
@@ -93,7 +97,8 @@ cargar_diccionario :-
     open(RutaCompleta, read, S),
     leer_palabras(S),
     close(S).
-
+% leer_palabras(+Stream)
+% Lee el diccionario de palabras y lo almacena en la base de datos
 leer_palabras(S) :-
     read_line_to_string(S, Linea),
     (   Linea \= end_of_file
@@ -103,17 +108,18 @@ leer_palabras(S) :-
     ;   true).
 
 % ruta_diccionario(+Idioma, -Ruta)
+% Ruta es el nombre del archivo del diccionario del idioma Idioma
 ruta_diccionario(es, 'palabras_castellano_sin_tildes.txt').
 ruta_diccionario(eus,    'palabras_euskera.txt').
 ruta_diccionario(en,     'palabras_ingles.txt').
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% INICIO Y FINAL DE PARTIDAS Y GESTION DE TURNOS
+%% Predicados de inicio de partida
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % iniciar_partida
-% Inicia la partida de un jugador o de dos jugadores segun la configuracion escogida, si no hay ninguna configuracion escogida
-% se lanza un error y se pide ejecutar el predicado configurar_opciones
+% Pregunta el nombre del / los jugadpr/es y  inicia la partida de un jugador o de dos jugadores segun la configuracion escogida
+%si no hay ninguna configuracion escogida se lanza un error y se pide ejecutar el predicado configurar_opciones
 iniciar_partida :-
     opcion(modo_juego, 'jugadorVSjugador'),
     !,
@@ -121,14 +127,14 @@ iniciar_partida :-
     format("Ingrese el nombre del jugador 1: "),
     flush_output,
     read_line_to_string(user_input, Jugador1String),
-    atom_string(Jugador1, Jugador1String), % Convertir a átomo
+    atom_string(Jugador1, Jugador1String), 
     format("Ingrese el nombre del jugador 2: "),
     flush_output,
     read_line_to_string(user_input, Jugador2String),
-    atom_string(Jugador2, Jugador2String), % Convertir a átomo
+    atom_string(Jugador2, Jugador2String), 
     (   iniciar_partida(Jugador1, Jugador2)
     ->  true
-    ;   !, fail % Detiene el flujo si iniciar_partida/2 falla
+    ;   !, fail 
     ).
 
 iniciar_partida :-
@@ -151,7 +157,7 @@ iniciar_partida :-
 % Inicia una partida de jugador Vs maquina
 iniciar_partida(Jugador) :-
     nonvar(Jugador),
-    opcion(modo_juego, 'jugadorVSmaquina'), % Verifica que el modo de juego sea correcto
+    opcion(modo_juego, 'jugadorVSmaquina'), 
     \+ partida_activa(_),
     assert(partida_activa(jugadores(Jugador, maquina))),
     inicializar_jugadores([Jugador, maquina]),
@@ -188,6 +194,7 @@ iniciar_partida(J1, J2) :-
 % abandonar_partida(+Jugador)
 % En caso de que haya una partida activa y el jugador Jugador este participando en ella, se retirara de la partida
 % y se le otorgara la victoria al otro jugador. Despues se reiniciara el juego
+% Si el jugador no esta participando o no existe fallara y se lanzara un mensaje de error
 abandonar_partida(_) :-
     \+ partida_activa(_),
     format("Error: no hay ninguna partida activa.~n"),
@@ -220,7 +227,8 @@ abandonar_partida(J) :-
     !, fail.
 
 % reset_juego
-% Termina la partida actual pero guarda las opciones de configuracion
+% Termina la partida actual borrando los dats de la partida
+%pero guarda las opciones de configuracion
 reset_juego :-
     retractall(partida_activa(_)),
     retractall(jugador(_, _, _)),
@@ -232,20 +240,24 @@ reset_juego :-
     format("El juego ha sido reiniciado. Puede configurar una nueva partida.~n").
 
 % inicializar_turno(+Jugadores)
+% Inicializa el turno del jugador que comienza la partida dependiendo del modo de inicio
+
+%Modo Normal: el jugador 1 comienza
 inicializar_turno([J1, _]) :-
-    opcion(modo_inicio, 'normal'), % Modo normal: siempre comienza el jugador 1
+    opcion(modo_inicio, 'normal'), %
     retractall(turno_actual(_)),
     assert(turno_actual(J1)).
 
+%Modo Alterno: el jugador que no ha comenzado la partida anetrior comienza
 inicializar_turno([J1, J2]) :-
-    opcion(modo_inicio, 'alterno'), % Modo alterno: alterna el jugador inicial
-    (   retract(ultimo_iniciador(J1)) % Si el último iniciador fue J1, ahora comienza J2
+    opcion(modo_inicio, 'alterno'), 
+    (   retract(ultimo_iniciador(J1)) 
     ->  assert(turno_actual(J2)),
         assert(ultimo_iniciador(J2))
-    ;   retract(ultimo_iniciador(J2)) % Si el último iniciador fue J2, ahora comienza J1
+    ;   retract(ultimo_iniciador(J2)) 
     ->  assert(turno_actual(J1)),
         assert(ultimo_iniciador(J1))
-    ;   % Primera partida: comienza el jugador 1
+    ;  
         assert(turno_actual(J1)),
         assert(ultimo_iniciador(J1))
     ).
@@ -264,6 +276,9 @@ cambiar_turno :-
     format("Es el turno de ~w.~n", [NuevoTurno]).
 
 % pasar_turno(+Jugador)
+% Cambia el turno al siguiente jugador, si es Jugador quien tiene el turno
+% En caso de que no sea el turno de Jugador, se lanza un mensaje de error y falla
+% En caso de que no haya una partida activa, se lanza un mensaje de error y falla
 pasar_turno(J) :-
     (   \+ partida_activa(_)
     ->  format("Error: No hay una partida activa.~n"), fail
@@ -284,7 +299,7 @@ pasar_turno(J) :-
     
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% GESTIÓN DE JUGADORES Y FICHAS
+%% Predicados de gestión de jugadores y fichas
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % inicializar_jugadores(+ListaJugadores)
@@ -311,10 +326,11 @@ mostrar_fichas(J) :-
     format("Fichas de ~w: ~w~n", [J, Fichas]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% GESTIÓN DE FICHAS POR IDIOMA
+%% Predicados de gestión de la bolsa de fichas por idioma
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% inicializar_bolsa/0 - Prepara la bolsa de fichas según el idioma actual
+% inicializar_bolsa
+%Prepara la bolsa de fichas según el idioma actual
 inicializar_bolsa :-
     retractall(ficha_disponible(_, _)),
     opcion(idioma, Idioma),
@@ -322,6 +338,8 @@ inicializar_bolsa :-
     agregar_fichas(Distribucion).
 
 % fichas_por_idioma(+Idioma, -Distribucion)
+% Distribucion es la lista de letras y su cantidad en el idioma Idioma
+%Cada elemento de distribucion es un par con la letra y cantidad de veces que se repite en la bolsa
 fichas_por_idioma(es, [(a, 12), (e, 12), (o, 9), (s, 6), (r, 5), (n, 5), (l, 4), (d, 3), (t, 4), (u, 5), 
                        (i, 6), (c, 4), (m, 2), (p, 2), (b, 2), (g, 2), (v, 1), (h, 2), (f, 1), (y, 1), 
                        (j, 1), ('ñ', 1), (q, 1), (z, 1), (x, 1)]).
@@ -335,25 +353,29 @@ fichas_por_idioma(en, [(e, 12), (a, 9), (i, 9), (o, 8), (n, 6), (r, 6), (t, 6), 
                        (y, 2), (k, 1), (j, 1), (x, 1), (q, 1), (z, 1)]).
 
 % agregar_fichas(+ListaLetraCantidad)
+%Dado un elemento de Distribucion (Un par con la letra y la cantidad de repeticiones)
+% agrega la letra y su cantidad a la bolsa de fichas
 agregar_fichas([]) :- !.
 agregar_fichas([(Letra, Cant) | Resto]) :-
-    assert(ficha_disponible(Letra, Cant)), % Añade la letra con su cantidad directamente
+    assert(ficha_disponible(Letra, Cant)), 
     agregar_fichas(Resto).
 
 % ver_bolsa
 % Muetsra una lista de letras disponibles en la bolsa y su cantidad
+% Siempre que esa letra este disponible en la bolsa
 ver_bolsa :-
     findall(L-C, ficha_disponible(L, C), Fichas),
     imprimir_bolsa(Fichas).
 
-% imprimir_bolsa(+ListaLetra-Cantidad)
+% imprimir_bolsa(+ListaLetraCantidad)
+% Funcion auxiliar para ver_bolsa, que dada una lista de letras y su cantidad la imprime por pantalla
 imprimir_bolsa([]).
 imprimir_bolsa([L-C|R]) :-
     format("~w: ~d~n", [L, C]),
     imprimir_bolsa(R).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% TABLERO
+%% predicados de gestion de tablero
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %Casilla_Especial(+Fila, +Columna, ?Tipo, ?Multiplicador)
@@ -432,12 +454,12 @@ inicializar_tablero :-
 % Muestra el tablero por consola, mostrando las letras si la casilla esta ocupada 
 % y los multiplicadores de las casillas especiales si no esta ocupada la casilla
 ver_tablero :-
-    write('    '), % Espacio inicial para los números de columna
-    forall(between(1, 15, C), (format("~|~`0t~d~2+", [C]), write('  '))), nl, % Encabezado de columnas
+    write('    '), 
+    forall(between(1, 15, C), (format("~|~`0t~d~2+", [C]), write('  '))), nl, 
     write('   '), % Espacio inicial para la línea superior
-    forall(between(1, 15, _), write('----')), nl, % Línea superior de la cuadrícula
+    forall(between(1, 15, _), write('----')), nl, 
     forall(between(1, 15, F), (
-        format("~|~`0t~d~2+ |", [F]), % Número de fila con separación
+        format("~|~`0t~d~2+ |", [F]), 
         forall(between(1, 15, C), (
             (casilla(F, C, ocupada, Letra) ->
     format(" ~w ", [Letra])
@@ -450,15 +472,15 @@ ver_tablero :-
     )
 ),
             
-            write('|') % Separador vertical
+            write('|') 
         )),
         nl,
-        write('   '), % Espacio inicial para las líneas horizontales
-        forall(between(1, 15, _), write('----')), nl % Línea horizontal entre filas
+        write('   '),
+        forall(between(1, 15, _), write('----')), nl 
     )).
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% VALOR PALABRA
+%% estructura valor letra por idioma
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % valor_letra(+Letra, +Idioma, -Puntos)
 % tiene exito si Puntos es el valor de la letra Letra en el idioma Idioma
@@ -520,17 +542,22 @@ valor_letra(_, eus, 0).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% FORMAR PALABRA
+%% predicado formar palabra y auxiliares
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% puntuaje_letras(+Letras, +Idioma, -Puntos)
-puntuaje_palabra(Letras, Idioma, Puntos) :-
-    maplist({Idioma}/[L, V]>>valor_letra(L, Idioma, V), Letras, Valores),
-    sum_list(Valores, Puntos).
+
 
 % formar_palabra(+Jugador, +Orientacion, +Fila, +Columna, +Palabra)
+% Coloca la palabra Palabra en el tablero en la posicion (Fila, Columna) y en la orientacion Orientacion
+% Y suma los puntos correspondientes al jugador Jugador
+% Si no hay una partida activa, lanza un mensaje de error y falla
+% Si no es el turno del jugador, lanza un mensaje de error y falla
+% Si el jugador no esta en la partida, lanza un mensaje de error y falla
+% Si la palabra no es valida, lanza un mensaje de error y falla
+% Si la palabra no cabe en el tablero, lanza un mensaje de error y falla
+% Si la palabra no pasa por el centro en el primer turno, lanza un mensaje de error y falla
+% Si el jugador no tiene las letras necesarias para formar la palabra, lanza un mensaje de error y falla
 formar_palabra(J, O, F, C, P) :-
-    %format("Intentando formar la palabra '~w' por el jugador ~w en orientación ~w desde la posición (~w, ~w).~n", [P, J, O, F, C]),
     (   partida_activa(_)
     ->  true % La partida esta activa
     ;   format("Error: No hay una partida activa.~n"), fail
@@ -561,11 +588,8 @@ formar_palabra(J, O, F, C, P) :-
     ;  validar_enganche_o_extension(Letras, O, F, C)
     ),
     letras_en_tablero(Letras, O, F, C, LetrasEnTablero), % Obtiene las letras que ya están en el tablero
-    %format("Letras ya colocadas en el tablero: ~w.~n", [LetrasEnTablero]),
     subtract(Letras, LetrasEnTablero, LetrasUsadas), % Calcula las letras que el jugador realmente usó
-    %format("Letras realmente usadas por el jugador: ~w.~n", [LetrasUsadas]),
     append(Fichas, LetrasEnTablero, FichasCombinadas),
-    %format("Fichas combinadas (jugador + tablero): ~w.~n", [FichasCombinadas]),
     (   contiene_fichas(FichasCombinadas, Letras)
     ->  true % El jugador tiene las letras necesarias para formar la palabra
     ;   format("Error: El jugador ~w no tiene las fichas necesarias para formar la palabra '~w'.~n", [J, P]), fail
@@ -575,13 +599,9 @@ formar_palabra(J, O, F, C, P) :-
     format("La palabra '~w' ha sido colocada en el tablero.~n", [P]),
     actualizar_fichas_jugador(J, LetrasUsadas), % Solo elimina las letras realmente usadas
     jugador(J, _, FichasRestantes),
-    %format("Las fichas del jugador ~w han sido actualizadas.~n", [J]),
     reponer_fichas(J), % Repone las fichas del jugador
-    format("Probando"),
     retract(turnos_sin_jugar(N)),
     assert(turnos_sin_jugar(0)),
-    format("Proband2"),
-  % format("Las fichas del jugador ~w han sido repuestas.~n", [J]),,
     (   opcion(idioma, Idioma),
         atom_chars(P, Letras),
         puntuaje_palabra(Letras, Idioma, O, F, C, Puntos),
@@ -674,7 +694,7 @@ letras_en_tablero([L|Ls], vertical, F, C, Resto) :-
     F1 is F + 1, % Avanza a la siguiente fila.
     letras_en_tablero(Ls, vertical, F1, C, Resto).
 
-% tablero_vacio/0
+% tablero_vacio
 % Tiene éxito si todas las casillas del tablero están libres.
 tablero_vacio :-
     \+ casilla(_, _, ocupada, _). % Falla si encuentra alguna casilla ocupada.
@@ -802,6 +822,9 @@ puntuaje_palabra(Letras, Idioma, O, F, C, PuntosTotales) :-
     puntuar_letras(Letras, Idioma, O, F, C, 0, 1, PuntosTotales).
 
 % puntuar_letras(+Letras, +Idioma, +Orientacion, +F, +C, +Acum, +MultPalabra, -PuntosFinal)
+% Tiene exito si PuntosFinal es el puntuaje que da la palabra que forma la lista Letras en el idioma Idioma
+% que se encuentra en la orientacion Orientacion, empezando la posicion Fila ,Columna
+% Acum es el acumulador de puntos y MultPalabra es el multiplicador de palabra
 puntuar_letras([], _, _, _, _, Acum, MultPalabra, Total) :-
     Total is Acum * MultPalabra.
 
@@ -820,6 +843,8 @@ puntuar_letras([L|Ls], Idioma, vertical, F, C, Acum, MPW, Total) :-
     puntuar_letras(Ls, Idioma, vertical, F1, C, NuevoAcum, NuevoMPW, Total).
 
 % letra_valor(+Letra, +Fila, +Columna, +Idioma, -ValorFinal, -MultPalabra)
+% Tiene exito si ValorFinal es el valor de la letra Letra en la posicion Fila,Columna
+% en el idioma Idioma, teniendo en cuenta los multiplicadores de letra y palabra
 letra_valor(L, F, C, Idioma, ValorLetra, PMult) :-
     downcase_atom(L, Lmin),
     valor_letra(Lmin, Idioma, Base),
@@ -829,10 +854,6 @@ letra_valor(L, F, C, Idioma, ValorLetra, PMult) :-
     ;   ValorLetra = Base,
         PMult = 1
     ).
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% FUNCIONES AUXILIARES
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % reponer_fichas(+Jugador)
 % Repone las fichas que le faltan al jugador Jugador hasta llegar a 7
@@ -846,11 +867,9 @@ reponer_fichas(J) :-
     format("Fichas disponibles en la bolsa: ~w.~n", [Bolsa]),
     CantidadAReponer is min(M, Bolsa), % Calcula cuántas fichas se pueden reponer
     generar_fichas(CantidadAReponer, Nuevas),
-    %format("Fichas nuevas para el jugador ~w: ~w.~n", [J, Nuevas]),
     append(FichasAct, Nuevas, Final),
     retract(jugador(J, P, _)),
     assert(jugador(J, P, Final)).
-    % format("Fichas finales del jugador ~w: ~w.~n", [J, Final]).
 
 % total_fichas_disponibles(-N)
 % Tiene exito si N es el total de fichas disponibles en la bolsa   
@@ -859,6 +878,8 @@ total_fichas_disponibles(N) :-
     sum_list(Cantidades, N).
 
 % generar_fichas(+N, -Fichas)
+% Genera N fichas aleatorias de la bolsa y las devuelve en la lista Fichas
+% Si N es 0, devuelve una lista vacía
 generar_fichas(0, []) :- !.
 generar_fichas(N, [L|R]) :-
     findall(F, ficha_disponible(F, _), Bolsa),
@@ -868,7 +889,10 @@ generar_fichas(N, [L|R]) :-
     N1 is N - 1,
     generar_fichas(N1, R).
 
+%reducir_ficha(+Letra)
 % Reducir la cantidad de fichas disponibles para una letra
+% Si la cantidad es 0, se elimina la ficha de la bolsa
+% Si la cantidad es mayor a 0, se reduce en 1
 reducir_ficha(L) :-
     ficha_disponible(L, Cantidad),
     Cantidad > 0,
@@ -881,8 +905,12 @@ reducir_ficha(L) :-
     retract(ficha_disponible(L, 0)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% ESTADISTICAS Y RANKINGS
+%% predicado para mostrar estadisticas
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% mostrar_puntuacion
+% Muestra la puntuacion actual de los jugadores
+% Si no hay una partida activa, lanza un mensaje de error y falla
 mostrar_puntuacion :-
     partida_activa(jugadores(J1, J2)), !,
     jugador(J1, Puntos1, _),
@@ -894,7 +922,10 @@ mostrar_puntuacion :-
     write('Error: no hay una partida iniciada.'), nl, fail.
 
 
-
+% ver_resumen
+% Muestra un resumen de la partida actual
+% Muestra la configuración, el historial de jugadas y la puntuación actual
+% Si no hay una partida activa, lanza un mensaje de error y falla
 ver_resumen :-
     partida_activa(jugadores(J1, J2)), !,
     format("=== RESUMEN DE LA PARTIDA ===~n~n"),
@@ -913,7 +944,8 @@ ver_resumen :-
     write('Error: no hay una partida iniciada.'), nl, fail.
 
 
-
+% ver_historial(+Jugador)
+% Muestra el historial de un jugador con sus victorias, derrotas, puntuacion máxima y media
 ver_historial(J) :-
     ruta_historial(Ruta),
     open(Ruta, read, Stream),
@@ -925,19 +957,26 @@ ver_historial(J) :-
     format(" - Puntuacion máxima: ~d~n", [Max]),
     format(" - Puntuacion media: ~2f~n", [Media]).
 
+%actualizar_historial(+Jugador, +Resultado, +Puntos)
+% Actualiza el historial del jugador Jugador con el resultado Resultado y los puntos Puntos
+% Resultado puede ser victoria o derrota
 actualizar_historial(J, Resultado, Puntos) :-
     ruta_historial(Ruta),
     open(Ruta, append, Stream),
     format(Stream, "~w,~w,~d~n", [J, Resultado, Puntos]),
     close(Stream).
 
+% ruta_historial(-Ruta)
+% Devuelve la ruta del archivo de historial
 ruta_historial(RutaCompleta) :-
     source_file(ruta_historial(_), RutaFuente),
     file_directory_name(RutaFuente, Dir),
     atomic_list_concat([Dir, '/historial.csv'], RutaCompleta).
 
 
-
+% leer_historial(+Stream, +Jugador, +Victorias, +Derrotas, +Suma, +N, -VictoriasFinales, -DerrotasFinales, -MaxPuntos, -Media)
+% predicado auxiliar que lee el historial de un jugador desde el archivo y calcula sus estadísticas
+% VictoriasFinales, DerrotasFinales, MaxPuntos y Media
 leer_historial(Stream, _, V, D, Sum, N, V, D, Max, Media) :-
     at_end_of_stream(Stream), !,
     (N =:= 0 -> Media = 0 ; Media is Sum / N),
@@ -958,9 +997,12 @@ leer_historial(Stream, J, V0, D0, S0, N0, V, D, Max, Media) :-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% FINALIZAR PARTIDA
+%% predicados para finalizar la partida
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% finalizar_partida
+% Finaliza la partida actual y muestra el ganador
+% actualiza el historial de los jugadores
 finalizar_partida :-
     (   bolsa_vacia
     ;   se_pasan_turno_ambos
@@ -977,24 +1019,23 @@ finalizar_partida :-
     format("Partida finalizada. Ganador: ~w con ~d puntos.~n", [Ganador, MaxP]),
     actualizar_historial(Ganador, victoria, MaxP),
     actualizar_historial(Perdedor, derrota, MinP),
-    limpiar_estado_partida.
+    reset_juego.
 
-
+%bolsa_vacia
+% Tiene exito si la bolsa de fichas está vacía
 bolsa_vacia :-
     \+ (ficha_disponible(_, C), C > 0).
 
+% se_pasan_turno_ambos
+% Exito si ambos jugadores pasan el turno seguidamente
 se_pasan_turno_ambos :-
     turnos_sin_jugar(2).
 
-limpiar_estado_partida :-
-    retractall(partida_activa(_)),
-    retractall(jugador(_, _, _)),
-    retractall(turno_actual(_)),
-    retractall(jugada(_, _, _, _)),
-    retractall(turnos_sin_jugar(_)),
-    assert(turnos_sin_jugar(0)).
 
-
+% ver_ranking
+% Muestra 2 rankings:
+% 1. Por porcentaje de victorias
+% 2. Por puntuación media
 ver_ranking :-
     ruta_historial(Ruta),
     open(Ruta, read, Stream),
@@ -1006,6 +1047,8 @@ ver_ranking :-
 
 
 % leer_todas_jugadas(+Stream, +Acum, -Datos)
+% Lee todas las jugadas del archivo y las almacena en la lista Acum
+% Datos es una lista de estadísticas de cada jugador
 leer_todas_jugadas(Stream, Acum, DatosFinal) :-
     at_end_of_stream(Stream), !,
     DatosFinal = Acum.
@@ -1020,6 +1063,8 @@ leer_todas_jugadas(Stream, Acum, DatosFinal) :-
 
 
 % actualizar_stats(+Jugador, +Resultado, +Puntos, +Acum, -NuevoAcum)
+% Actualiza las estadísticas del jugador Jugador con el resultado Resultado y los puntos Puntos
+% Acum es la lista acumulada de estadísticas
 actualizar_stats(J, Resultado, Pts, [], [stats(J, V, D, Pts, 1)]) :-
     (Resultado = "victoria" -> V = 1, D = 0 ; V = 0, D = 1).
 actualizar_stats(J, Resultado, Pts, [stats(J, V0, D0, S0, N0)|Resto], [stats(J, V, D, S, N)|Resto]) :-
@@ -1030,7 +1075,9 @@ actualizar_stats(J, Resultado, Pts, [stats(J, V0, D0, S0, N0)|Resto], [stats(J, 
 actualizar_stats(J, Resultado, Pts, [X|R], [X|R2]) :-
     actualizar_stats(J, Resultado, Pts, R, R2).
 
-
+%% mostrar_ranking_victorias
+%% Muestra el ranking de jugadores por porcentaje de victorias
+%% Datos es una lista de estadísticas de cada jugador
 mostrar_ranking_victorias(Datos) :-
     maplist(calcular_porcentaje_victorias, Datos, ListaConPorc),
     sort(2, @>=, ListaConPorc, Ordenado),
@@ -1038,12 +1085,15 @@ mostrar_ranking_victorias(Datos) :-
     forall(member(J-Victorias-Porc, Ordenado),
         format(" - ~w: ~d victorias (~2f%)~n", [J, Victorias, Porc])).
 
+% calcular_porcentaje_victorias(+Stats, -J-V-Porcentaje)
+% Calcula el porcentaje de victorias de un jugador
 calcular_porcentaje_victorias(stats(J, V, D, _, N), J-V-Porcentaje) :-
     Total is V + D,
     (Total =:= 0 -> Porcentaje = 0 ; Porcentaje is (V * 100) / Total).
 
 
-
+% mostrar_ranking_puntuaciones(Datos)
+% Muestra el ranking de jugadores por puntuación media
 mostrar_ranking_puntuaciones(Datos) :-
     maplist(calcular_puntuaciones, Datos, ListaConPuntos),
     sort(3, @>=, ListaConPuntos, Ordenado),
@@ -1051,6 +1101,8 @@ mostrar_ranking_puntuaciones(Datos) :-
     forall(member(puntos(J, Max, Media), Ordenado),
         format(" - ~w: máx. ~d, media ~2f~n", [J, Max, Media])).
 
+% calcular_puntuaciones(+Stats, -Puntos)
+% Calcula la puntuación máxima y media de un jugador
 calcular_puntuaciones(stats(J, _, _, Suma, N), puntos(J, Max, Media)) :-
     Media is Suma / N,
     Max is Suma.
@@ -1058,10 +1110,7 @@ calcular_puntuaciones(stats(J, _, _, Suma, N), puntos(J, Max, Media)) :-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% A COMPLETAR POSTERIORMENTE:
-%% Comentar inicializar turno, no entiendo muy bien lo que hace
-%% Comentar agrupar 
 %% Valor letra en ingles, y asehurarse de que los valores son los correctos en euskera y castellano
-% Revisar los comentarios de FUNCIONES AUXILIARES No creo que esten bien
-%% Comentar los predicados de estadisticas
-%% Implementar reparto de fichas(manual y lo otro) y inicio de partida(alterno y lo otro)
+%% Implementar reparto de fichas(manual y aleatorio)
+%% Revisar especificaciones de las funciones
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
