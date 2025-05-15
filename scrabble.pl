@@ -10,7 +10,10 @@
 :- dynamic turno_actual/1. % Guarda el nombre del jugador al que le toca jugar
 :- dynamic ultimo_iniciador/1. % Para el modo alterno
 :- dynamic jugada/5. % jugada(Jugador, Palabra, Puntos, Casillas, FichasRestantes)
+:- dynamic turnos_sin_jugar/1. % Guarda el numero seguido de turnos sin jugar
 
+
+turnos_sin_jugar(0). 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% CONFIGURACIÓN
@@ -270,7 +273,15 @@ pasar_turno(J) :-
     ->  cambiar_turno,
         format("El turno ha pasado al siguiente jugador.~n")
     ;   format("Error: No es el turno del jugador ~w.~n", [J]), fail
+    ),
+    retract(turnos_sin_jugar(N)),
+    N1 is N + 1,
+    assert(turnos_sin_jugar(N1)),
+    ( N1 >= 2
+    -> finalizar_partida
+    ;  format("Turno pasado por ~w. Turnos consecutivos sin jugar: ~d~n", [J, N1])
     ).
+    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% GESTIÓN DE JUGADORES Y FICHAS
@@ -566,6 +577,10 @@ formar_palabra(J, O, F, C, P) :-
     jugador(J, _, FichasRestantes),
     %format("Las fichas del jugador ~w han sido actualizadas.~n", [J]),
     reponer_fichas(J), % Repone las fichas del jugador
+    format("Probando"),
+    retract(turnos_sin_jugar(N)),
+    assert(turnos_sin_jugar(0)),
+    format("Proband2"),
   % format("Las fichas del jugador ~w han sido repuestas.~n", [J]),,
     (   opcion(idioma, Idioma),
         atom_chars(P, Letras),
@@ -885,29 +900,168 @@ ver_resumen :-
     format("=== RESUMEN DE LA PARTIDA ===~n~n"),
     
     % Configuración
-    format("Configuración:~n"),
+    format("Configuracion:~n"),
     ( opcion(idioma, Idioma) -> format(" - Idioma: ~w~n", [Idioma]) ; true ),
     ( opcion(modo, Modo) -> format(" - Modo de juego: ~w~n", [Modo]) ; true ),
     format(" - Jugadores: ~w y ~w~n~n", [J1, J2]),
 
     % Historial
     format("Historial de jugadas:~n"),
-    forall(jugada(J, P, Pts, Fichas),
-           (format(" - ~w jugó '~w' (+~d pts), fichas restantes: ~w~n", [J, P, Pts, Fichas]))).
+    forall(jugada(J, P, Pts,_, Fichas),
+           (format(" - ~w ha colocado '~w' (+~d pts), fichas restantes: ~w~n", [J, P, Pts, Fichas]))).
 ver_resumen :-
     write('Error: no hay una partida iniciada.'), nl, fail.
 
 
 
+ver_historial(J) :-
+    ruta_historial(Ruta),
+    open(Ruta, read, Stream),
+    leer_historial(Stream, J, 0, 0, 0, 0, V, D, Max, Media),
+    close(Stream),
+    format(" ====Historial==== de ~w:~n", [J]),
+    format(" - Victorias: ~d~n", [V]),
+    format(" - Derrotas: ~d~n", [D]),
+    format(" - Puntuacion máxima: ~d~n", [Max]),
+    format(" - Puntuacion media: ~2f~n", [Media]).
+
+actualizar_historial(J, Resultado, Puntos) :-
+    ruta_historial(Ruta),
+    open(Ruta, append, Stream),
+    format(Stream, "~w,~w,~d~n", [J, Resultado, Puntos]),
+    close(Stream).
+
+ruta_historial(RutaCompleta) :-
+    source_file(ruta_historial(_), RutaFuente),
+    file_directory_name(RutaFuente, Dir),
+    atomic_list_concat([Dir, '/historial.csv'], RutaCompleta).
+
+
+
+leer_historial(Stream, _, V, D, Sum, N, V, D, Max, Media) :-
+    at_end_of_stream(Stream), !,
+    (N =:= 0 -> Media = 0 ; Media is Sum / N),
+    (N =:= 0 -> Max = 0 ; Max = Sum).  
+
+leer_historial(Stream, J, V0, D0, S0, N0, V, D, Max, Media) :-
+    read_line_to_string(Stream, Line),
+    split_string(Line, ",", "", [Jugador, Resultado, PuntosStr]),
+    atom_string(JStr, Jugador),
+    JStr = J,
+    number_string(Puntos, PuntosStr),
+    (Resultado = "victoria" -> V1 is V0 + 1, D1 is D0 ; V1 = V0, D1 is D0 + 1),
+    S1 is S0 + Puntos,
+    N1 is N0 + 1,
+    leer_historial(Stream, J, V1, D1, S1, N1, V, D, Max, Media).
+leer_historial(Stream, J, V0, D0, S0, N0, V, D, Max, Media) :-
+    leer_historial(Stream, J, V0, D0, S0, N0, V, D, Max, Media).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% FINALIZAR PARTIDA
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+finalizar_partida :-
+    (   bolsa_vacia
+    ;   se_pasan_turno_ambos
+    ),
+    partida_activa(jugadores(J1, J2)),
+    jugador(J1, P1, _),
+    jugador(J2, P2, _),
+    (   P1 > P2
+    ->  Ganador = J1, Perdedor = J2, MaxP = P1, MinP = P2
+    ;   P2 > P1
+    ->  Ganador = J2, Perdedor = J1, MaxP = P2, MinP = P1
+    ;   write('La partida ha terminado en empate.'), nl, !, fail
+    ),
+    format("Partida finalizada. Ganador: ~w con ~d puntos.~n", [Ganador, MaxP]),
+    actualizar_historial(Ganador, victoria, MaxP),
+    actualizar_historial(Perdedor, derrota, MinP),
+    limpiar_estado_partida.
+
+
+bolsa_vacia :-
+    \+ (ficha_disponible(_, C), C > 0).
+
+se_pasan_turno_ambos :-
+    turnos_sin_jugar(2).
+
+limpiar_estado_partida :-
+    retractall(partida_activa(_)),
+    retractall(jugador(_, _, _)),
+    retractall(turno_actual(_)),
+    retractall(jugada(_, _, _, _)),
+    retractall(turnos_sin_jugar(_)),
+    assert(turnos_sin_jugar(0)).
+
+
+ver_ranking :-
+    ruta_historial(Ruta),
+    open(Ruta, read, Stream),
+    leer_todas_jugadas(Stream, [], DatosPorJugador),
+    close(Stream),
+    mostrar_ranking_victorias(DatosPorJugador),
+    nl,
+    mostrar_ranking_puntuaciones(DatosPorJugador).
+
+
+% leer_todas_jugadas(+Stream, +Acum, -Datos)
+leer_todas_jugadas(Stream, Acum, DatosFinal) :-
+    at_end_of_stream(Stream), !,
+    DatosFinal = Acum.
+leer_todas_jugadas(Stream, Acum, DatosFinal) :-
+    read_line_to_string(Stream, Line),
+    split_string(Line, ",", "", [JugadorStr, Resultado, PuntosStr]),
+    atom_string(J, JugadorStr),
+    number_string(Puntos, PuntosStr),
+    actualizar_stats(J, Resultado, Puntos, Acum, Actualizado),
+    leer_todas_jugadas(Stream, Actualizado, DatosFinal).
+
+
+
+% actualizar_stats(+Jugador, +Resultado, +Puntos, +Acum, -NuevoAcum)
+actualizar_stats(J, Resultado, Pts, [], [stats(J, V, D, Pts, 1)]) :-
+    (Resultado = "victoria" -> V = 1, D = 0 ; V = 0, D = 1).
+actualizar_stats(J, Resultado, Pts, [stats(J, V0, D0, S0, N0)|Resto], [stats(J, V, D, S, N)|Resto]) :-
+    !,
+    (Resultado = "victoria" -> V is V0 + 1, D = D0 ; V = V0, D is D0 + 1),
+    S is S0 + Pts,
+    N is N0 + 1.
+actualizar_stats(J, Resultado, Pts, [X|R], [X|R2]) :-
+    actualizar_stats(J, Resultado, Pts, R, R2).
+
+
+mostrar_ranking_victorias(Datos) :-
+    maplist(calcular_porcentaje_victorias, Datos, ListaConPorc),
+    sort(2, @>=, ListaConPorc, Ordenado),
+    write(' Ranking por porcentaje de victorias:'), nl,
+    forall(member(J-Victorias-Porc, Ordenado),
+        format(" - ~w: ~d victorias (~2f%)~n", [J, Victorias, Porc])).
+
+calcular_porcentaje_victorias(stats(J, V, D, _, N), J-V-Porcentaje) :-
+    Total is V + D,
+    (Total =:= 0 -> Porcentaje = 0 ; Porcentaje is (V * 100) / Total).
+
+
+
+mostrar_ranking_puntuaciones(Datos) :-
+    maplist(calcular_puntuaciones, Datos, ListaConPuntos),
+    sort(3, @>=, ListaConPuntos, Ordenado),
+    write('Ranking por puntuación media:'), nl,
+    forall(member(puntos(J, Max, Media), Ordenado),
+        format(" - ~w: máx. ~d, media ~2f~n", [J, Max, Media])).
+
+calcular_puntuaciones(stats(J, _, _, Suma, N), puntos(J, Max, Media)) :-
+    Media is Suma / N,
+    Max is Suma.
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% A COMPLETAR POSTERIORMENTE:
-%% ver_historial/1
-%% ver_ranking/0
-%% pasar_turno(J)
-% finalizar_partida -- Cuando se terminan las fichas y se le otorga la victoria al jugador con más puntos
 %% Comentar inicializar turno, no entiendo muy bien lo que hace
 %% Comentar agrupar 
 %% Valor letra en ingles, y asehurarse de que los valores son los correctos en euskera y castellano
 % Revisar los comentarios de FUNCIONES AUXILIARES No creo que esten bien
+%% Comentar los predicados de estadisticas
 %% Implementar reparto de fichas(manual y lo otro) y inicio de partida(alterno y lo otro)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
