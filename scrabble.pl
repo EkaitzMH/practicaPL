@@ -210,12 +210,20 @@ abandonar_partida(J) :-
 abandonar_partida(J) :-
     partida_activa(jugadores(J, Otro)),
     format("El jugador ~w ha abandonado la partida. ~w gana automáticamente.~n", [J, Otro]),
+      jugador(J, P1, _),
+    jugador(Otro, P2, _),
+    actualizar_historial(Otro, victoria, P2),
+    actualizar_historial(J, derrota, P1),
     reset_juego,
     !.
 
 abandonar_partida(J) :-
     partida_activa(jugadores(Otro, J)),
     format("El jugador ~w ha abandonado la partida. ~w gana automáticamente.~n", [J, Otro]),
+    jugador(J, P1, _),
+    jugador(Otro, P2, _),
+    actualizar_historial(Otro, victoria, P2),
+    actualizar_historial(J, derrota, P1),
     reset_juego,
     !.
 
@@ -1108,7 +1116,6 @@ calcular_puntuaciones(stats(J, _, _, Suma, N), puntos(J, Max, Media)) :-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% A COMPLETAR POSTERIORMENTE:
-%% asehurarse de que los valores son los correctos en euskera y castellano
 %% Implementar reparto de fichas(manual y aleatorio)
 %% Revisar especificaciones de las funciones
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
