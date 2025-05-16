@@ -485,59 +485,53 @@ ver_tablero :-
 
 valor_letra(a, es, 1) :- !.
 valor_letra(e, es, 1) :- !.
-valor_letra(o, es, 1) :- !.
-valor_letra(s, es, 1) :- !.
-valor_letra(r, es, 1) :- !.
-valor_letra(n, es, 1) :- !.
+valor_letra(i, es, 1) :- !.
 valor_letra(l, es, 1) :- !.
-valor_letra(d, es, 2) :- !.
+valor_letra(n, es, 1) :- !.
+valor_letra(o, es, 1) :- !.
+valor_letra(r, es, 1) :- !.
+valor_letra(s, es, 1) :- !.
 valor_letra(t, es, 1) :- !.
 valor_letra(u, es, 1) :- !.
-valor_letra(i, es, 1) :- !.
+valor_letra(d, es, 2) :- !.
+valor_letra(g, es, 2) :- !.
+valor_letra(b, es, 3) :- !.
 valor_letra(c, es, 3) :- !.
 valor_letra(m, es, 3) :- !.
 valor_letra(p, es, 3) :- !.
-valor_letra(b, es, 3) :- !.
-valor_letra(g, es, 2) :- !.
-valor_letra(v, es, 4) :- !.
-valor_letra(h, es, 4) :- !.
 valor_letra(f, es, 4) :- !.
+valor_letra(h, es, 4) :- !.
+valor_letra(v, es, 4) :- !.
 valor_letra(y, es, 4) :- !.
-valor_letra(j, es, 8) :- !.
-valor_letra('ñ', es, 8) :- !.
 valor_letra(q, es, 5) :- !.
-valor_letra(z, es, 10) :- !.
+valor_letra(j, es, 8) :- !.
 valor_letra(x, es, 8) :- !.
-valor_letra(w, es, 4) :- !.
-valor_letra(k, es, 5) :- !.
+valor_letra('ñ', es, 8) :- !.
+valor_letra(z, es, 10) :- !.
+
 
 valor_letra(a, eus, 1) :- !.
 valor_letra(e, eus, 1) :- !.
 valor_letra(i, eus, 1) :- !.
-valor_letra(o, eus, 1) :- !.
-valor_letra(u, eus, 1) :- !.
 valor_letra(n, eus, 1) :- !.
-valor_letra(d, eus, 2) :- !.
+valor_letra(o, eus, 1) :- !.
 valor_letra(t, eus, 1) :- !.
-valor_letra(l, eus, 1) :- !.
-valor_letra(r, eus, 1) :- !.
+valor_letra(u, eus, 1) :- !.
+valor_letra(r, eus, 2) :- !.
 valor_letra(k, eus, 2) :- !.
-valor_letra(g, eus, 2) :- !.
-valor_letra(b, eus, 2) :- !.
+valor_letra(d, eus, 3) :- !.
+valor_letra(b, eus, 4) :- !.
 valor_letra(z, eus, 4) :- !.
-valor_letra(m, eus, 2) :- !.
-valor_letra(s, eus, 2) :- !.
-valor_letra(h, eus, 4) :- !.
-valor_letra(p, eus, 3) :- !.
-valor_letra(x, eus, 4) :- !.
-valor_letra(j, eus, 4) :- !.
-valor_letra(v, eus, 3) :- !.
-valor_letra(f, eus, 4) :- !.
-valor_letra(w, eus, 4) :- !.
-valor_letra(c, eus, 5) :- !.
-valor_letra(q, eus, 5) :- !.
-valor_letra(y, eus, 5) :- !.
-valor_letra(_, eus, 0) :- !.
+valor_letra(l, eus, 5) :- !.
+valor_letra(g, eus, 5) :- !.
+valor_letra(h, eus, 5) :- !.
+valor_letra(s, eus, 5) :- !.
+valor_letra(j, eus, 8) :- !.
+valor_letra(m, eus, 8) :- !.
+valor_letra(p, eus, 8) :- !.
+valor_letra(f, eus, 10) :- !.
+valor_letra(x, eus, 10) :- !.
+
 
 valor_letra(a, en, 1) :- !.
 valor_letra(e, en, 1) :- !.
@@ -1114,7 +1108,7 @@ calcular_puntuaciones(stats(J, _, _, Suma, N), puntos(J, Max, Media)) :-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% A COMPLETAR POSTERIORMENTE:
-%% Valor letra en ingles, y asehurarse de que los valores son los correctos en euskera y castellano
+%% asehurarse de que los valores son los correctos en euskera y castellano
 %% Implementar reparto de fichas(manual y aleatorio)
 %% Revisar especificaciones de las funciones
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
