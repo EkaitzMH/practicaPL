@@ -167,7 +167,6 @@ iniciar_partida(Jugador) :-
     inicializar_turno([Jugador, maquina]),
     format("Partida iniciada: ~w vs Máquina.~n", [Jugador]), !.
 
-
 % iniciar_partida(J1,J2) 
 %Inicia una partida con dos jugadores, fallara en caso de que los dos jugadores se llamen igual
 iniciar_partida(J1, J2) :-
@@ -278,27 +277,21 @@ cambiar_turno :-
 % En caso de que no sea el turno de Jugador, se lanza un mensaje de error y falla
 % En caso de que no haya una partida activa, se lanza un mensaje de error y falla
 pasar_turno(J) :-
-    format("[DEBUG] Intentando pasar turno para ~w~n", [J]),
     (   \+ partida_activa(_)
-    ->  format("[DEBUG] No hay partida activa.~n"),
-        format("Error: No hay una partida activa.~n"), fail
+    ->  format("Error: No hay una partida activa.~n"), fail
     ;   true
     ),
     (   turno_actual(J)
-    ->  format("[DEBUG] Es el turno de ~w, cambiando turno...~n", [J]),
-        cambiar_turno,
+    ->  cambiar_turno,
         format("El turno ha pasado al siguiente jugador.~n")
-    ;   format("[DEBUG] No es el turno de ~w~n", [J]),
-        format("Error: No es el turno del jugador ~w.~n", [J]), fail
+    ;   format("Error: No es el turno del jugador ~w.~n", [J]), fail
     ),
     retract(turnos_sin_jugar(N)),
     N1 is N + 1,
-    format("[DEBUG] turnos_sin_jugar anterior: ~w, nuevo: ~w~n", [N, N1]),
     assert(turnos_sin_jugar(N1)),
     ( N1 >= 2
-    -> format("[DEBUG] Se han pasado el turno ambos jugadores, finalizando partida~n", []),
-       finalizar_partida
-    ;  format("Turno pasado por ~w. Turnos consecutivos sin jugar: ~d~n", [J, N1])
+    -> format("Ambos jugadores han pasado el turno."), finalizar_partida
+    ;  true
     ).
     
 
@@ -486,8 +479,10 @@ ver_tablero :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% estructura valor letra por idioma
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 % valor_letra(+Letra, +Idioma, -Puntos)
 % tiene exito si Puntos es el valor de la letra Letra en el idioma Idioma
+
 valor_letra(a, es, 1) :- !.
 valor_letra(e, es, 1) :- !.
 valor_letra(o, es, 1) :- !.
@@ -516,40 +511,64 @@ valor_letra(x, es, 8) :- !.
 valor_letra(w, es, 4) :- !.
 valor_letra(k, es, 5) :- !.
 
-valor_letra(a, eus, 1).
-valor_letra(e, eus, 1).
-valor_letra(i, eus, 1).
-valor_letra(o, eus, 1).
-valor_letra(u, eus, 1).
-valor_letra(n, eus, 1).
-valor_letra(d, eus, 2).
-valor_letra(t, eus, 1).
-valor_letra(l, eus, 1).
-valor_letra(r, eus, 1).
-valor_letra(k, eus, 2).
-valor_letra(g, eus, 2).
-valor_letra(b, eus, 2).
-valor_letra(z, eus, 4).
-valor_letra(m, eus, 2).
-valor_letra(s, eus, 2).
-valor_letra(h, eus, 4).
-valor_letra(p, eus, 3).
-valor_letra(x, eus, 4).
-valor_letra(j, eus, 4).
-valor_letra(v, eus, 3).
-valor_letra(f, eus, 4).
-valor_letra(w, eus, 4).
-valor_letra(c, eus, 5).
-valor_letra(q, eus, 5).
-valor_letra(y, eus, 5).
-valor_letra(_, eus, 0).
+valor_letra(a, eus, 1) :- !.
+valor_letra(e, eus, 1) :- !.
+valor_letra(i, eus, 1) :- !.
+valor_letra(o, eus, 1) :- !.
+valor_letra(u, eus, 1) :- !.
+valor_letra(n, eus, 1) :- !.
+valor_letra(d, eus, 2) :- !.
+valor_letra(t, eus, 1) :- !.
+valor_letra(l, eus, 1) :- !.
+valor_letra(r, eus, 1) :- !.
+valor_letra(k, eus, 2) :- !.
+valor_letra(g, eus, 2) :- !.
+valor_letra(b, eus, 2) :- !.
+valor_letra(z, eus, 4) :- !.
+valor_letra(m, eus, 2) :- !.
+valor_letra(s, eus, 2) :- !.
+valor_letra(h, eus, 4) :- !.
+valor_letra(p, eus, 3) :- !.
+valor_letra(x, eus, 4) :- !.
+valor_letra(j, eus, 4) :- !.
+valor_letra(v, eus, 3) :- !.
+valor_letra(f, eus, 4) :- !.
+valor_letra(w, eus, 4) :- !.
+valor_letra(c, eus, 5) :- !.
+valor_letra(q, eus, 5) :- !.
+valor_letra(y, eus, 5) :- !.
+valor_letra(_, eus, 0) :- !.
 
+valor_letra(a, en, 1) :- !.
+valor_letra(e, en, 1) :- !.
+valor_letra(i, en, 1) :- !.
+valor_letra(l, en, 1) :- !.
+valor_letra(n, en, 1) :- !.
+valor_letra(o, en, 1) :- !.
+valor_letra(r, en, 1) :- !.
+valor_letra(s, en, 1) :- !.
+valor_letra(t, en, 1) :- !.
+valor_letra(u, en, 1) :- !.
+valor_letra(d, en, 2) :- !.
+valor_letra(g, en, 2) :- !.
+valor_letra(b, en, 3) :- !.
+valor_letra(c, en, 3) :- !.
+valor_letra(m, en, 3) :- !.
+valor_letra(p, en, 3) :- !.
+valor_letra(f, en, 4) :- !.
+valor_letra(h, en, 4) :- !.
+valor_letra(v, en, 4) :- !.
+valor_letra(w, en, 4) :- !.
+valor_letra(y, en, 4) :- !.
+valor_letra(k, en, 5) :- !.
+valor_letra(j, en, 8) :- !.
+valor_letra(x, en, 8) :- !.
+valor_letra(q, en, 10) :- !.
+valor_letra(z, en, 10) :- !.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% predicado formar palabra y auxiliares
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
 
 % formar_palabra(+Jugador, +Orientacion, +Fila, +Columna, +Palabra)
 % Coloca la palabra Palabra en el tablero en la posicion (Fila, Columna) y en la orientacion Orientacion
@@ -606,7 +625,6 @@ formar_palabra(J, O, F, C, P) :-
     reponer_fichas(J), % Repone las fichas del jugador
     retractall(turnos_sin_jugar(_)),
     assert(turnos_sin_jugar(0)),
-    format("hasta aqui llega"),
     (   opcion(idioma, Idioma),
         atom_chars(P, Letras),
         puntuaje_palabra(Letras, Idioma, O, F, C, Puntos),
@@ -621,46 +639,34 @@ formar_palabra(J, O, F, C, P) :-
     cambiar_turno, !.
 
 validar_enganche_o_extension(Letras, O, F, C) :-
-    format("[DEBUG] Validando enganche o extensión para ~w en (~w,~w) orientacion ~w~n", [Letras, F, C, O]),
     casillas_por_donde_pasa(Letras, O, F, C, Casillas),
-    format("[DEBUG] Casillas por donde pasa: ~w~n", [Casillas]),
     % Debe tocar al menos una letra ya existente
     (   intersecta_con_casillas_previas(Casillas)
-    ->  format("[DEBUG] La palabra toca al menos una casilla previa.~n")
+    ->  true
     ;   format("Error: La palabra debe tocar al menos una ya existente.~n"), fail
     ),
     % Si está extendiendo una palabra, debe usarla completa
     (   esta_extendiendo_palabra(Casillas, O, PalabraOriginal, CasillasOriginal)
-    ->  format("[DEBUG] Está extendiendo palabra: ~w en casillas ~w~n", [PalabraOriginal, CasillasOriginal]),
-        length(CasillasOriginal, LenOriginal),
-        length(PalabraOriginal, LenOriginal),
-        format("[DEBUG] Longitud de palabra original: ~w, longitud de casillas original: ~w~n", [LenOriginal, LenOriginal])
-    ;   format("[DEBUG] No está extendiendo ninguna palabra existente.~n")
+    ->  length(CasillasOriginal, LenOriginal),
+        length(PalabraOriginal, LenOriginal)
+    ;   true
     ).
 
 intersecta_con_casillas_previas(Casillas) :-
-    format("[DEBUG] Buscando intersección con jugadas previas...~n", []),
     jugada(_, _, _, CasillasPrevias, _),
-    format("[DEBUG] Casillas previas de jugada: ~w~n", [CasillasPrevias]),
     member(Pos, Casillas),
     member(Pos, CasillasPrevias),
-    format("[DEBUG] ¡Intersección encontrada en la posición ~w!~n", [Pos]),
     !.
 
 esta_extendiendo_palabra(Casillas, Orientacion, LetrasPalabra, CasillasPalabra) :-
-    format("[DEBUG] Comprobando si está extendiendo palabra en la misma línea y orientación...~n", []),
     jugada(_, Palabra, _, CasillasPalabra, _),
-    format("[DEBUG] Palabra previa: ~w, Casillas previas: ~w~n", [Palabra, CasillasPalabra]),
     misma_linea_y_orientacion(CasillasPalabra, Casillas, Orientacion),
     sublista_consecutiva(CasillasPalabra, Casillas),
-    atom_chars(Palabra, LetrasPalabra),
-    format("[DEBUG] ¡Extensión válida! Palabra: ~w~n", [Palabra]).
+    atom_chars(Palabra, LetrasPalabra).
 
 misma_linea_y_orientacion(Casillas1, Casillas2, horizontal) :-
-    format("[DEBUG] Comprobando misma línea horizontal...~n", []),
     forall(member((F,_), Casillas1), member((F,_), Casillas2)).
 misma_linea_y_orientacion(Casillas1, Casillas2, vertical) :-
-    format("[DEBUG] Comprobando misma línea vertical...~n", []),
     forall(member((_,C), Casillas1), member((_,C), Casillas2)).
 
 sublista_consecutiva(Sub, Lista) :-
@@ -671,11 +677,9 @@ sublista_consecutiva(Sub, Lista) :-
 % Devuelve una lista de coordenadas (F, C) por donde pasa la palabra.
 casillas_por_donde_pasa([], _, _, _, []) :- !.
 casillas_por_donde_pasa([_|Letras], horizontal, F, C, [(F, C)|Resto]) :-
-    format("[DEBUG] Añadiendo casilla horizontal: (~w,~w)~n", [F, C]),
     C1 is C + 1,
     casillas_por_donde_pasa(Letras, horizontal, F, C1, Resto).
 casillas_por_donde_pasa([_|Letras], vertical, F, C, [(F, C)|Resto]) :-
-    format("[DEBUG] Añadiendo casilla vertical: (~w,~w)~n", [F, C]),
     F1 is F + 1,
     casillas_por_donde_pasa(Letras, vertical, F1, C, Resto).
 
@@ -790,11 +794,8 @@ sublista(Xs, [_|Ys]) :- sublista(Xs, Ys).
 % Elimina las las letras de la lista LetrasUsadas de las fichas del jugador Jugador 
 actualizar_fichas_jugador(J, Letras) :-
     jugador(J, P, F),
-    format("Fichas actuales del jugador ~w: ~w.~n", [J, F]),
-    format("Letras a eliminar: ~w.~n", [Letras]),
     (   contiene_fichas(F, Letras) % Verifica que el jugador tiene las fichas necesarias
     ->  remove_letras(F, Letras, FR),
-        format("Fichas restantes después de eliminar: ~w.~n", [FR]),
         retract(jugador(J, P, _)),
         assert(jugador(J, P, FR))
     ;   format("Error: El jugador ~w no tiene las fichas necesarias para actualizar.~n", [J]),
@@ -867,9 +868,7 @@ reponer_fichas(J) :-
     jugador(J, P, FichasAct),
     length(FichasAct, N),
     M is 7 - N, % Calcula cuántas fichas faltan para completar 7
-    format("El jugador ~w tiene ~w fichas. Necesita reponer ~w fichas.~n", [J, N, M]),
     total_fichas_disponibles(Bolsa),
-    format("Fichas disponibles en la bolsa: ~w.~n", [Bolsa]),
     CantidadAReponer is min(M, Bolsa), % Calcula cuántas fichas se pueden reponer
     generar_fichas(CantidadAReponer, Nuevas),
     append(FichasAct, Nuevas, Final),
@@ -1092,7 +1091,7 @@ mostrar_ranking_victorias(Datos) :-
 
 % calcular_porcentaje_victorias(+Stats, -J-V-Porcentaje)
 % Calcula el porcentaje de victorias de un jugador
-calcular_porcentaje_victorias(stats(J, V, D, _, N), J-V-Porcentaje) :-
+calcular_porcentaje_victorias(stats(J, V, D, _, _), J-V-Porcentaje) :-
     Total is V + D,
     (Total =:= 0 -> Porcentaje = 0 ; Porcentaje is (V * 100) / Total).
 
