@@ -1051,6 +1051,9 @@ bolsa_vacia :-
 se_pasan_turno_ambos :-
     turnos_sin_jugar(2).
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Predicados de cálculo de estadísticas y ranking
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % ver_ranking: siempre tiene éxito, muestra dos rankings. 1. Por porcentaje de victorias, 2. Por puntuación media.
 ver_ranking :-
