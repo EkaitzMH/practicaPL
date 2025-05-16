@@ -10,10 +10,7 @@
 :- dynamic turno_actual/1. % Guarda el nombre del jugador al que le toca jugar
 :- dynamic ultimo_iniciador/1. % Para el modo alterno
 :- dynamic jugada/5. % jugada(Jugador, Palabra, Puntos, Casillas, FichasRestantes)
-:- dynamic turnos_sin_jugar/1. % Guarda el numero de turnos sin jugar seguidos
-
-
-
+:- dynamic turnos_sin_jugar/1. % Guarda el numero de turnos sin jugar seguidos.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Predicados de configuración
@@ -69,7 +66,7 @@ preguntar_opcion(Opcion, Mensaje) :-
 % valores por defecto
 :- dynamic opcion_inicializada/0.
 :- initialization(init_config).
-:- turnos_sin_jugar(0). 
+%:- turnos_sin_jugar(0). 
 
 init_config :-
     opcion_inicializada, !.
@@ -78,6 +75,7 @@ init_config :-
     assert(opcion(modo_juego, jugadorVSjugador)),
     assert(opcion(reparto_fichas, aleatorio)),
     assert(opcion(modo_inicio, normal)),
+    assert(turnos_sin_jugar(0)),
     assert(opcion_inicializada).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -280,20 +278,26 @@ cambiar_turno :-
 % En caso de que no sea el turno de Jugador, se lanza un mensaje de error y falla
 % En caso de que no haya una partida activa, se lanza un mensaje de error y falla
 pasar_turno(J) :-
+    format("[DEBUG] Intentando pasar turno para ~w~n", [J]),
     (   \+ partida_activa(_)
-    ->  format("Error: No hay una partida activa.~n"), fail
+    ->  format("[DEBUG] No hay partida activa.~n"),
+        format("Error: No hay una partida activa.~n"), fail
     ;   true
     ),
     (   turno_actual(J)
-    ->  cambiar_turno,
+    ->  format("[DEBUG] Es el turno de ~w, cambiando turno...~n", [J]),
+        cambiar_turno,
         format("El turno ha pasado al siguiente jugador.~n")
-    ;   format("Error: No es el turno del jugador ~w.~n", [J]), fail
+    ;   format("[DEBUG] No es el turno de ~w~n", [J]),
+        format("Error: No es el turno del jugador ~w.~n", [J]), fail
     ),
     retract(turnos_sin_jugar(N)),
     N1 is N + 1,
+    format("[DEBUG] turnos_sin_jugar anterior: ~w, nuevo: ~w~n", [N, N1]),
     assert(turnos_sin_jugar(N1)),
     ( N1 >= 2
-    -> finalizar_partida
+    -> format("[DEBUG] Se han pasado el turno ambos jugadores, finalizando partida~n", []),
+       finalizar_partida
     ;  format("Turno pasado por ~w. Turnos consecutivos sin jugar: ~d~n", [J, N1])
     ).
     
@@ -600,8 +604,9 @@ formar_palabra(J, O, F, C, P) :-
     actualizar_fichas_jugador(J, LetrasUsadas), % Solo elimina las letras realmente usadas
     jugador(J, _, FichasRestantes),
     reponer_fichas(J), % Repone las fichas del jugador
-    retract(turnos_sin_jugar(N)),
+    retractall(turnos_sin_jugar(_)),
     assert(turnos_sin_jugar(0)),
+    format("hasta aqui llega"),
     (   opcion(idioma, Idioma),
         atom_chars(P, Letras),
         puntuaje_palabra(Letras, Idioma, O, F, C, Puntos),
