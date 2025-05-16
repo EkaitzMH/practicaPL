@@ -3,7 +3,7 @@
 
 :- dynamic opcion/2.  % Es una estructura en la que se guarda los parametros de configuracion con su valor
 :- dynamic jugador/3. % Es una estructura en la que se guarda el nombre del jugador, su puntuacion y sus fichas
-:- dynamic partida_activa/1. %Guarda si una partida esta activa o no
+:- dynamic partida_activa/1. % Guarda los nombres de los jugadores cuando la partida está activa
 :- dynamic casilla/4. % Guarda por cada casilla su fila, columna, si esta ocupada o no y en caso de estar ocupada la letra
 :- dynamic ficha_disponible/2. % Guarda las letras disponibles y su cantidad
 :- dynamic historial/4. % Guarda el historial de jugadas, con el jugador, la palabra, la puntuacion y las casillas ocupadas
@@ -163,7 +163,10 @@ iniciar_partida(Jugador) :-
     inicializar_tablero,
     cargar_diccionario,
     inicializar_bolsa,
-    repartir_fichas([Jugador, maquina]),
+    (   opcion(reparto_fichas, aleatorio)
+        -> repartir_fichas([Jugador, maquina])
+        ; true
+    ),
     inicializar_turno([Jugador, maquina]),
     format("Partida iniciada: ~w vs Máquina.~n", [Jugador]), !.
 
@@ -181,7 +184,10 @@ iniciar_partida(J1, J2) :-
     inicializar_tablero,
     cargar_diccionario,
     inicializar_bolsa,
-    repartir_fichas([J1, J2]),
+    (   opcion(reparto_fichas, aleatorio)
+        -> repartir_fichas([J1, J2])
+        ; true
+    ),
     inicializar_turno([J1, J2]),
     turno_actual(T),
     format("Partida iniciada: ~w vs ~w.~n", [J1, J2]),
@@ -624,7 +630,10 @@ formar_palabra(J, O, F, C, P) :-
     format("La palabra '~w' ha sido colocada en el tablero.~n", [P]),
     actualizar_fichas_jugador(J, LetrasUsadas), % Solo elimina las letras realmente usadas
     jugador(J, _, FichasRestantes),
-    reponer_fichas(J), % Repone las fichas del jugador
+    (   opcion(reparto_fichas, aleatorio)
+        -> reponer_fichas(J) % Repone las fichas del jugador
+        ; true
+    ),
     retractall(turnos_sin_jugar(_)),
     assert(turnos_sin_jugar(0)),
     (   opcion(idioma, Idioma),
@@ -895,6 +904,23 @@ generar_fichas(N, [L|R]) :-
     N1 is N - 1,
     generar_fichas(N1, R).
 
+% sacar_fichas(+Letras)
+% Saca de la bolsa todas las letras de la lista Letras.
+% Si alguna no está disponible, no hace ningún cambio y falla.
+
+sacar_fichas(Letras) :-
+    todas_disponibles(Letras),      % Verifica sin modificar
+    maplist(reducir_ficha, Letras). % Solo modifica si todo está bien
+
+% todas_disponibles(+Letras)
+% Tiene éxito si todas las letras están disponibles (cantidad > 0)
+
+todas_disponibles([]).
+todas_disponibles([L|Ls]) :-
+    ficha_disponible(L, Cant),
+    Cant > 0,
+    todas_disponibles(Ls).
+
 %reducir_ficha(+Letra)
 % Reducir la cantidad de fichas disponibles para una letra
 % Si la cantidad es 0, se elimina la ficha de la bolsa
@@ -909,6 +935,53 @@ reducir_ficha(L) :-
 reducir_ficha(L) :-
     ficha_disponible(L, 0),
     retract(ficha_disponible(L, 0)).
+
+asignar_fichas(Jugador, NuevasFichas) :-
+    (   \+ partida_activa(_)
+    ->  format("Error: No hay una partida activa.~n"), fail
+    ;   (   findall(jugada(_,_,_,_,_), jugada(_,_,_,_,_), Jugadas),
+            (   Jugadas == []
+            ->  (   turno_actual(Jugador)
+                ->  jugador(Jugador, _, FichasActuales),
+                    length(FichasActuales, CantidadActual),
+                    length(NuevasFichas, CantidadNueva),
+                    (7 is CantidadActual + CantidadNueva
+                        -> true
+                        ; N is 7 - CantidadActual,
+                        format("El jugador necesita ~w fichas para completar 7.~n", [N]), fail
+                    ),
+                    (   sacar_fichas(NuevasFichas)
+                        ->  true
+                        ;   format("Error: No hay suficientes fichas en la bolsa.~n"), fail
+                    ),
+                    append(FichasActuales, NuevasFichas, FichasFinales),
+                    retract(jugador(Jugador, Puntuacion, _)),
+                    assert(jugador(Jugador, Puntuacion, FichasFinales)),
+                    format("Fichas asignadas al jugador ~w: ~w~n", [Jugador, NuevasFichas])
+                ;   format("Error: Solo el jugador que tiene el turno puede recibir fichas al inicio.~n"), fail
+                )
+            ;   last(Jugadas, jugada(Jugador, _,_,_,_))
+            ->  jugador(Jugador, _, FichasActuales),
+                jugador(Jugador, _, FichasActuales),
+                    length(FichasActuales, CantidadActual),
+                    length(NuevasFichas, CantidadNueva),
+                    (7 is CantidadActual + CantidadNueva
+                        -> true
+                        ; N is 7 - CantidadActual,
+                        format("El jugador necesita ~w fichas para completar 7.~n", [N]), fail
+                    ),
+                    (   sacar_fichas(NuevasFichas)
+                        ->  true
+                        ;   format("Error: No hay suficientes fichas en la bolsa.~n"), fail
+                    ),
+                    append(FichasActuales, NuevasFichas, FichasFinales),
+                    retract(jugador(Jugador, Puntuacion, _)),
+                    assert(jugador(Jugador, Puntuacion, FichasFinales)),
+                    format("Fichas asignadas al jugador ~w: ~w~n", [Jugador, NuevasFichas])
+            ;   format("Error: El jugador ~w no ha realizado la última jugada.~n", [Jugador]), fail
+            )
+        )
+    ).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% predicado para mostrar estadisticas
